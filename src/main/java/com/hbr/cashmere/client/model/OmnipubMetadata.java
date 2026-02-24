@@ -5,6 +5,7 @@ import lombok.Data;
 
 @Data
 public class OmnipubMetadata {
+
   private String title;
   private String[] authors;
   private String publisher;

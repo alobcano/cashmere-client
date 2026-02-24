@@ -11,8 +11,9 @@ public class AwsConfig {
 
   @Bean
   public S3Client amazonS3() {
-    return S3Client.builder().region(Region.US_EAST_1)
-        .credentialsProvider(DefaultCredentialsProvider.create()).build();
+    return S3Client.builder()
+      .region(Region.US_EAST_1)
+      .credentialsProvider(DefaultCredentialsProvider.builder().build())
+      .build();
   }
-
 }

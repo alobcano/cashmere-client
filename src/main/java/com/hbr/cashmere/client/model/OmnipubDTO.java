@@ -1,4 +1,3 @@
-
 package com.hbr.cashmere.client.model;
 
 import lombok.Data;
@@ -10,5 +9,4 @@ public class OmnipubDTO {
   private String externalId;
   private OmnipubMetadata metadata;
   private byte[] file;
-
 }
