@@ -1,4 +1,4 @@
-package com.hbr.cashmere.client.configuration;
+package com.hbr.cashmere.transfer_service.configuration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

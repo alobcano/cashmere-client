@@ -1,6 +1,6 @@
-package com.hbr.cashmere.client.service;
+package com.hbr.cashmere.transfer_service.service;
 
-import com.hbr.cashmere.client.util.XmlUtil;
+import com.hbr.cashmere.transfer_service.util.XmlUtil;
 import java.io.IOException;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;

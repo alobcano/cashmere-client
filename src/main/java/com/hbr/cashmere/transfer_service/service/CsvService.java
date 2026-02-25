@@ -1,9 +1,9 @@
-package com.hbr.cashmere.client.service;
+package com.hbr.cashmere.transfer_service.service;
 
-import com.hbr.cashmere.client.model.CsvRow;
-import com.hbr.cashmere.client.model.OmnipubDTO;
-import com.hbr.cashmere.client.model.OmnipubMetadata;
-import com.hbr.cashmere.client.util.XmlUtil;
+import com.hbr.cashmere.transfer_service.model.CsvRow;
+import com.hbr.cashmere.transfer_service.model.OmnipubDTO;
+import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
+import com.hbr.cashmere.transfer_service.util.XmlUtil;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

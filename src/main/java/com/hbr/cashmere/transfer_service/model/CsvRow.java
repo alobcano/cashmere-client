@@ -1,4 +1,4 @@
-package com.hbr.cashmere.client.model;
+package com.hbr.cashmere.transfer_service.model;
 
 public class CsvRow {
     private String coreProductId;

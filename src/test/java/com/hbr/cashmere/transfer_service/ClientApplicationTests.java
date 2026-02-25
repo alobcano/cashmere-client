@@ -1,4 +1,4 @@
-package com.hbr.cashmere.client;
+package com.hbr.cashmere.transfer_service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

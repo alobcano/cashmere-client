@@ -1,4 +1,4 @@
-package com.hbr.cashmere.client.util;
+package com.hbr.cashmere.transfer_service.util;
 
 import jakarta.xml.bind.DatatypeConverter;
 import java.io.ByteArrayInputStream;
