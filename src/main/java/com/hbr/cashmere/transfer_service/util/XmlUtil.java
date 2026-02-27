@@ -3,6 +3,7 @@ package com.hbr.cashmere.transfer_service.util;
 import jakarta.xml.bind.DatatypeConverter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import javax.xml.parsers.DocumentBuilder;
@@ -166,4 +167,23 @@ public class XmlUtil {
       return new byte[0];
     }
   }
+
+  /**
+   * Saves the given XML byte array to a file at the specified path.
+   * @param xmlBytes The XML content as a byte array
+   * @param filePath The path (including filename) where the XML file will be saved
+   * @return true if saved successfully, false otherwise
+   */
+  public static boolean saveXmlToFile(byte[] xmlBytes, String filePath) {
+    try (FileOutputStream fos = new FileOutputStream(filePath)) {
+      fos.write(xmlBytes);
+      fos.flush();
+      return true;
+    } catch (Exception e) {
+      log.error("Error saving XML to file: {}", filePath, e);
+      return false;
+    }
+  }
+
+  
 }
