@@ -1,11 +1,9 @@
 package com.hbr.cashmere.transfer_service.util;
 
-import jakarta.xml.bind.DatatypeConverter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDateTime;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -24,8 +22,10 @@ import org.w3c.dom.NodeList;
 @Slf4j
 public class XmlUtil {
 
-  private static final DocumentBuilderFactory FACTORY = DocumentBuilderFactory.newInstance();
-  private static final TransformerFactory TRANSFORMER_FACTORY = TransformerFactory.newInstance();
+  private static final DocumentBuilderFactory FACTORY =
+    DocumentBuilderFactory.newInstance();
+  private static final TransformerFactory TRANSFORMER_FACTORY =
+    TransformerFactory.newInstance();
 
   private XmlUtil() {}
 
@@ -87,11 +87,11 @@ public class XmlUtil {
   }
 
   /**
-   * Extracts the <published> value from the XML byte array as a java.util.Date.
+   * Extracts the <published> value from the XML byte array as a java.time.LocalDateTime.
    * @param xmlBytes The XML content as a byte array
-   * @return The published date as a Date, or null if not found or parse error
+   * @return The published date as a LocalDateTime, or null if not found or parse error
    */
-  public static Date extractPublishedDate(byte[] xmlBytes) {
+  public static LocalDateTime extractPublishedDate(byte[] xmlBytes) {
     try (ByteArrayInputStream bais = new ByteArrayInputStream(xmlBytes)) {
       DocumentBuilder builder = FACTORY.newDocumentBuilder();
       Document doc = builder.parse(bais);
@@ -99,15 +99,7 @@ public class XmlUtil {
       NodeList publishedNodes = doc.getElementsByTagName("ns6:published");
       if (publishedNodes.getLength() > 0) {
         String publishedText = publishedNodes.item(0).getTextContent().trim();
-        // Try parsing ISO 8601 format (e.g., 2024-06-01T12:00:00Z)
-        try {
-          return DatatypeConverter.parseDateTime(publishedText).getTime();
-        } catch (Exception e) {
-          // fallback: try yyyy-MM-dd
-          try {
-            return new SimpleDateFormat("yyyy-MM-dd").parse(publishedText);
-          } catch (Exception ignored) {}
-        }
+        return LocalDateTime.parse(publishedText);
       }
     } catch (Exception e) {
       log.error("Error extracting published date from XML", e);
@@ -184,6 +176,4 @@ public class XmlUtil {
       return false;
     }
   }
-
-  
 }
