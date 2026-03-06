@@ -1,5 +1,6 @@
 package com.hbr.cashmere.transfer_service.service;
 
+import com.hbr.cashmere.transfer_service.constants.XmlConstants;
 import com.hbr.cashmere.transfer_service.model.CsvRow;
 import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
 import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
@@ -69,7 +70,8 @@ public class CsvService {
     metadata.setTitle(XmlUtil.extractTitle(fileContent));
     metadata.setAuthors(XmlUtil.extractAuthors(fileContent));
     metadata.setPublisher("Harvard Business School Publishing - HBD");
-    metadata.setPublicationDate(XmlUtil.extractPublishedDate(fileContent));
+    metadata.setPublicationDate(XmlUtil.extractDate(fileContent, XmlConstants.PUBLISHED_TAG));
+    metadata.setLastUpdatedDate(XmlUtil.extractDate(fileContent, XmlConstants.UPDATED_TAG));
 
     return metadata;
   }

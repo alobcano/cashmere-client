@@ -1,5 +1,6 @@
 package com.hbr.cashmere.transfer_service.util;
 
+import com.hbr.cashmere.transfer_service.constants.XmlConstants;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
@@ -28,27 +29,28 @@ public class XmlUtil {
     TransformerFactory.newInstance();
 
   private XmlUtil() {}
-    /**
-     * Decodes HTML entities (&lt;, &gt;) to their corresponding brackets in a string.
-     * @param input The string with HTML entities
-     * @return The decoded string
-     */
-    public static String decodeHtmlEntities(String input) {
-      if (input == null) return null;
-      return input.replace("&lt;", "<").replace("&gt;", ">");
-    }
 
-    /**
-     * Decodes HTML entities (&lt;, &gt;) in a byte array and returns the decoded byte array.
-     * @param inputBytes The byte array with HTML entities
-     * @return The decoded byte array
-     */
-    public static byte[] decodeHtmlEntities(byte[] inputBytes) {
-      if (inputBytes == null) return null;
-      String input = new String(inputBytes);
-      String decoded = decodeHtmlEntities(input);
-      return decoded.getBytes();
-    }
+  /**
+   * Decodes HTML entities (&lt;, &gt;) to their corresponding brackets in a string.
+   * @param input The string with HTML entities
+   * @return The decoded string
+   */
+  public static String decodeHtmlEntities(String input) {
+    if (input == null) return null;
+    return input.replace("&lt;", "<").replace("&gt;", ">");
+  }
+
+  /**
+   * Decodes HTML entities (&lt;, &gt;) in a byte array and returns the decoded byte array.
+   * @param inputBytes The byte array with HTML entities
+   * @return The decoded byte array
+   */
+  public static byte[] decodeHtmlEntities(byte[] inputBytes) {
+    if (inputBytes == null) return new byte[0];
+    String input = new String(inputBytes);
+    String decoded = decodeHtmlEntities(input);
+    return decoded.getBytes();
+  }
 
   /**
    * Extracts the <title> value from the XML byte array as a String.
@@ -61,7 +63,7 @@ public class XmlUtil {
       Document doc = builder.parse(bais);
       String title;
       doc.getDocumentElement().normalize();
-      NodeList titleNodes = doc.getElementsByTagName("ns6:title");
+      NodeList titleNodes = doc.getElementsByTagName(XmlConstants.TITLE_TAG);
       if (titleNodes.getLength() > 0) {
         title = titleNodes.item(0).getTextContent().trim();
         return title;
@@ -82,7 +84,7 @@ public class XmlUtil {
       DocumentBuilder builder = FACTORY.newDocumentBuilder();
       Document doc = builder.parse(bais);
       doc.getDocumentElement().normalize();
-      NodeList authorNodes = doc.getElementsByTagName("ns6:author");
+      NodeList authorNodes = doc.getElementsByTagName(XmlConstants.AUTHOR_TAG);
       String[] authors = new String[authorNodes.getLength()];
       for (int i = 0; i < authorNodes.getLength(); i++) {
         Node authorNode = authorNodes.item(i);
@@ -92,7 +94,7 @@ public class XmlUtil {
           Node child = children.item(j);
           if (
             child.getNodeType() == Node.ELEMENT_NODE &&
-            "ns6:name".equals(child.getNodeName())
+            XmlConstants.NAME_TAG.equals(child.getNodeName())
           ) {
             name = child.getTextContent().trim();
             break;
@@ -112,18 +114,20 @@ public class XmlUtil {
    * @param xmlBytes The XML content as a byte array
    * @return The published date as a LocalDateTime, or null if not found or parse error
    */
-  public static LocalDateTime extractPublishedDate(byte[] xmlBytes) {
+  public static LocalDateTime extractDate(byte[] xmlBytes, String tagName) {
     try (ByteArrayInputStream bais = new ByteArrayInputStream(xmlBytes)) {
       DocumentBuilder builder = FACTORY.newDocumentBuilder();
       Document doc = builder.parse(bais);
       doc.getDocumentElement().normalize();
-      NodeList publishedNodes = doc.getElementsByTagName("ns6:published");
-      if (publishedNodes.getLength() > 0) {
-        String publishedText = publishedNodes.item(0).getTextContent().trim();
-        return LocalDateTime.parse(publishedText);
+      NodeList dateNodes = doc.getElementsByTagName(
+        tagName
+      );
+      if (dateNodes.getLength() > 0) {
+        String dateText = dateNodes.item(0).getTextContent().trim();
+        return LocalDateTime.parse(dateText);
       }
     } catch (Exception e) {
-      log.error("Error extracting published date from XML", e);
+      log.error("Error extracting date from XML", e);
     }
     return null;
   }
@@ -143,12 +147,14 @@ public class XmlUtil {
       Document document = builder.parse(bais);
       document.getDocumentElement().normalize();
       // Remove <img> tags from HTML inside <ns6:content> elements
-      NodeList contentNodes = document.getElementsByTagName("ns6:content");
+      NodeList contentNodes = document.getElementsByTagName(
+        XmlConstants.CONTENT_TAG
+      );
       for (int i = 0; i < contentNodes.getLength(); i++) {
         Node contentNode = contentNodes.item(i);
         String html = contentNode.getTextContent();
         org.jsoup.nodes.Document htmlDoc = Jsoup.parse(html);
-        Elements images = htmlDoc.select("img");
+        Elements images = htmlDoc.select(XmlConstants.IMAGE_TAG);
         for (Element img : images) {
           img.remove();
         }
@@ -162,7 +168,7 @@ public class XmlUtil {
         contentNode.appendChild(cdata);
       }
 
-      NodeList imgNodes = document.getElementsByTagName("img");
+      NodeList imgNodes = document.getElementsByTagName(XmlConstants.IMAGE_TAG);
       while (imgNodes.getLength() > 0) {
         imgNodes.item(0).getParentNode().removeChild(imgNodes.item(0));
       }
