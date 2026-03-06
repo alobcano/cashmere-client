@@ -136,10 +136,12 @@ public class CsvService {
         row.getAvailabilityPk()
       );
       String filename = String.format("%s.xml", row.getAlternateIdValue1());
-      byte[] xmlFile;
       try {
         log.info("processing file: {}", filename);
-        xmlFile = gitService.downloadXml(filename).block();
+        byte[] xmlFile = XmlUtil.decodeHtmlEntities(
+          gitService.downloadXml(filename).block()
+        );
+
 
         contentService
           .fetchMetadata(row.getAvailabilityPk())
@@ -149,6 +151,9 @@ public class CsvService {
             String publicationDate = availability
               .get("publicationDate")
               .asString();
+            String lastUpdatedDate = availability
+              .get("publicationDate")
+              .asString();
             String[] authors = List.of(author).toArray(new String[0]);
             OmnipubMetadata metadata = new OmnipubMetadata(
               row.getTitle(),
@@ -156,6 +161,10 @@ public class CsvService {
               "Harvard Business School Publishing - Corporate Learning",
               LocalDateTime.parse(
                 publicationDate,
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+              ),
+              LocalDateTime.parse(
+                lastUpdatedDate,
                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
               )
             );

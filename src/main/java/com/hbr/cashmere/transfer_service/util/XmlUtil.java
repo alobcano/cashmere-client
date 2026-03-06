@@ -28,6 +28,27 @@ public class XmlUtil {
     TransformerFactory.newInstance();
 
   private XmlUtil() {}
+    /**
+     * Decodes HTML entities (&lt;, &gt;) to their corresponding brackets in a string.
+     * @param input The string with HTML entities
+     * @return The decoded string
+     */
+    public static String decodeHtmlEntities(String input) {
+      if (input == null) return null;
+      return input.replace("&lt;", "<").replace("&gt;", ">");
+    }
+
+    /**
+     * Decodes HTML entities (&lt;, &gt;) in a byte array and returns the decoded byte array.
+     * @param inputBytes The byte array with HTML entities
+     * @return The decoded byte array
+     */
+    public static byte[] decodeHtmlEntities(byte[] inputBytes) {
+      if (inputBytes == null) return null;
+      String input = new String(inputBytes);
+      String decoded = decodeHtmlEntities(input);
+      return decoded.getBytes();
+    }
 
   /**
    * Extracts the <title> value from the XML byte array as a String.

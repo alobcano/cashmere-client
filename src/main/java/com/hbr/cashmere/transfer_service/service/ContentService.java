@@ -24,7 +24,7 @@ public class ContentService {
       .retrieve()
       .bodyToMono(JsonNode.class)
       .doOnSuccess(metadata ->
-        log.info("Fetched metadata for content ID {}: {}", contentId, metadata)
+        log.info("Fetched metadata for content ID {}", contentId)
       )
       .doOnError(error ->
         log.error(

@@ -14,4 +14,5 @@ public class OmnipubMetadata {
   private String[] authors;
   private String publisher;
   private LocalDateTime publicationDate;
+  private LocalDateTime lastUpdatedDate;
 }
