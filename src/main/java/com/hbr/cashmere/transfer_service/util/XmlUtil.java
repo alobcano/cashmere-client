@@ -4,7 +4,6 @@ import com.hbr.cashmere.transfer_service.constants.XmlConstants;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
-import java.time.LocalDateTime;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -110,21 +109,18 @@ public class XmlUtil {
   }
 
   /**
-   * Extracts the <published> value from the XML byte array as a java.time.LocalDateTime.
+   * Extracts the <published> value from the XML byte array as a String.
    * @param xmlBytes The XML content as a byte array
    * @return The published date as a LocalDateTime, or null if not found or parse error
    */
-  public static LocalDateTime extractDate(byte[] xmlBytes, String tagName) {
+  public static String extractDate(byte[] xmlBytes, String tagName) {
     try (ByteArrayInputStream bais = new ByteArrayInputStream(xmlBytes)) {
       DocumentBuilder builder = FACTORY.newDocumentBuilder();
       Document doc = builder.parse(bais);
       doc.getDocumentElement().normalize();
-      NodeList dateNodes = doc.getElementsByTagName(
-        tagName
-      );
+      NodeList dateNodes = doc.getElementsByTagName(tagName);
       if (dateNodes.getLength() > 0) {
-        String dateText = dateNodes.item(0).getTextContent().trim();
-        return LocalDateTime.parse(dateText);
+        return dateNodes.item(0).getTextContent().trim();
       }
     } catch (Exception e) {
       log.error("Error extracting date from XML", e);
