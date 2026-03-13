@@ -1,5 +1,6 @@
 package com.hbr.cashmere.transfer_service.controller;
 
+import com.hbr.cashmere.transfer_service.constants.CsvConstants;
 import com.hbr.cashmere.transfer_service.model.CsvDeletionManifestRow;
 import com.hbr.cashmere.transfer_service.model.CsvSnowflakeRow;
 import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
@@ -30,17 +31,17 @@ public class CsvUploadController {
   /**
    * Endpoint to upload a CSV file and process its content. The CSV is expected to contain rows of data that will be processed by the CsvService.
    * @param file The CSV file to upload
-   * @param collectionId The collection ID to associate with the processed rows
+   * @param collection The collection name to associate with the processed rows
    * @return A ResponseEntity indicating the result of the operation
    */
   @PostMapping("/upload")
   public ResponseEntity<String> uploadCsv(
     @RequestParam("file") MultipartFile file,
-    @RequestParam("collectionId") int collectionId
+    @RequestParam("collection") String collection
   ) {
     if (file.isEmpty()) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-        "File is empty"
+        CsvConstants.EMPTY_FILE
       );
     }
     try {
@@ -48,13 +49,13 @@ public class CsvUploadController {
         file.getInputStream(),
         CsvSnowflakeRow.class
       );
-      csvService.processCsv(rows, collectionId);
+      csvService.processCsv(rows, collection);
       return ResponseEntity.ok(
         "CSV processed successfully. Rows: " + rows.size()
       );
     } catch (Exception e) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-        "Error processing file: " + e.getMessage()
+        CsvConstants.PROCESSING_ERROR + e.getMessage()
       );
     }
   }
@@ -62,17 +63,17 @@ public class CsvUploadController {
   /**
    * Endpoint to upload a CSV file containing video data and process its content. The CSV is expected to contain rows of video data that will be processed by the CsvService.
    * @param file The CSV file to upload
-   * @param collectionId The collection ID to associate with the processed video rows
+   * @param collection The collection name to associate with the processed video rows
    * @return A ResponseEntity indicating the result of the operation
    */
   @PostMapping("/video/upload")
   public ResponseEntity<String> uploadVideo(
     @RequestParam("file") MultipartFile file,
-    @RequestParam("collectionId") int collectionId
+    @RequestParam("collection") String collection
   ) {
     if (file.isEmpty()) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-        "File is empty"
+        CsvConstants.EMPTY_FILE
       );
     }
     try {
@@ -80,13 +81,13 @@ public class CsvUploadController {
         file.getInputStream(),
         CsvVideoRow.class
       );
-      csvService.processVideoCsv(rows, collectionId);
+      csvService.processVideoCsv(rows, collection);
       return ResponseEntity.ok(
         "Video CSV processed successfully. Rows: " + rows.size()
       );
     } catch (Exception e) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-        "Error processing file: " + e.getMessage()
+        CsvConstants.PROCESSING_ERROR + e.getMessage()
       );
     }
   }
@@ -105,7 +106,7 @@ public class CsvUploadController {
   ) {
     if (file.isEmpty()) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-        "File is empty"
+        CsvConstants.EMPTY_FILE
       );
     }
     try {
@@ -123,7 +124,7 @@ public class CsvUploadController {
       );
     } catch (Exception e) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-        "Error processing file: " + e.getMessage()
+        CsvConstants.PROCESSING_ERROR + e.getMessage()
       );
     }
   }

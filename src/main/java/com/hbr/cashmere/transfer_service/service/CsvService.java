@@ -7,6 +7,7 @@ import com.hbr.cashmere.transfer_service.model.CsvSnowflakeRow;
 import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
 import com.hbr.cashmere.transfer_service.model.GitHubFileWithMetadata;
 import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
+import com.hbr.cashmere.transfer_service.util.CsvUtil;
 import com.hbr.cashmere.transfer_service.util.XmlUtil;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -46,9 +47,9 @@ public class CsvService {
    * Processes a list of CSV rows, downloading XML files from S3, extracting metadata, and creating Omnipubs in Cashmere.
    *
    * @param rows The list of CSV rows to process
-   * @param collectionId The collection ID to associate with the created Omnipubs
+   * @param collection The collection name to associate with the created Omnipubs
    */
-  public void processCsv(List<CsvSnowflakeRow> rows, int collectionId) {
+  public void processCsv(List<CsvSnowflakeRow> rows, String collection) {
     for (CsvSnowflakeRow row : rows) {
       String s3Path = row.getS3Path();
       String[] parts = s3Path.replace("s3://", "").split("/", 2);
@@ -56,7 +57,11 @@ public class CsvService {
         String bucketName = parts[0];
         String key = parts[1];
         String filename = key.substring(key.lastIndexOf('/') + 1);
-        key = key.replace("article-content", "podcast-content"); // Temporary fix for podcast content
+
+        if (collection.contains("Podcasts")) {
+          key = key.replace("article-content", "podcast-content");
+        }
+
         byte[] xmlFile;
         try {
           log.info("processing file: {}", filename);
@@ -64,7 +69,7 @@ public class CsvService {
           this.createOmnipub(
             this.getMetadata(xmlFile),
             xmlFile,
-            collectionId,
+            CsvUtil.getCollectionId(collection),
             row.getAvailabilityPk(),
             filename
           );
@@ -166,7 +171,7 @@ public class CsvService {
    * @param rows The list of video CSV rows to process
    * @param collectionId The collection ID to associate with the Omnipubs
    */
-  public void processVideoCsv(List<CsvVideoRow> rows, int collectionId) {
+  public void processVideoCsv(List<CsvVideoRow> rows, String collection) {
     for (CsvVideoRow row : rows) {
       log.info(
         "Processing video row with title: {} and external_id: {}",
@@ -186,7 +191,7 @@ public class CsvService {
           .fetchMetadata(row.getAvailabilityPk())
           .subscribe(json -> {
             JsonNode availability = json.get("availabilities").get(0);
-            String author = availability.get("author").asString();
+            String[] authors = CsvUtil.getAuthors(availability.get("author").asString());
             DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern(
               "yyyy-MM-dd HH:mm:ss.SSS"
             );
@@ -196,7 +201,6 @@ public class CsvService {
             )
               .atOffset(ZoneOffset.UTC)
               .format(DateTimeFormatter.ISO_INSTANT);
-            String[] authors = List.of(author).toArray(new String[0]);
             OmnipubMetadata metadata = new OmnipubMetadata(
               row.getTitle(),
               authors,
@@ -210,7 +214,7 @@ public class CsvService {
             this.createOmnipub(
               metadata,
               xmlFile,
-              collectionId,
+              CsvUtil.getCollectionId(collection),
               row.getAvailabilityPk(),
               filename
             );

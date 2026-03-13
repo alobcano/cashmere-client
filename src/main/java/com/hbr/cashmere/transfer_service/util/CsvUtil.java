@@ -1,5 +1,6 @@
 package com.hbr.cashmere.transfer_service.util;
 
+import com.hbr.cashmere.transfer_service.constants.CollectionConstants;
 import com.hbr.cashmere.transfer_service.model.CsvDeletionManifestRow;
 import com.hbr.cashmere.transfer_service.model.CsvRow;
 import com.hbr.cashmere.transfer_service.model.CsvSnowflakeRow;
@@ -103,5 +104,32 @@ public class CsvUtil {
   // Convenience method for backward compatibility
   public static List<CsvRow> parseCsvFile(InputStream inputStream) {
     return parseCsvFile(inputStream, CsvRow.class);
+  }
+
+  public static int getCollectionId(String collection) {
+    // Placeholder mapping, replace with actual logic as needed
+    switch (collection) {
+      case CollectionConstants.CL_ARTICLES_BASE:
+        return CollectionConstants.CL_ARTICLES_BASE_ID;
+      case CollectionConstants.CL_ARTICLES_DEI:
+        return CollectionConstants.CL_ARTICLES_DEI_ID;
+      case CollectionConstants.CL_VIDEOS_BASE:
+        return CollectionConstants.CL_VIDEOS_BASE_ID;
+      case CollectionConstants.CL_VIDEOS_DEI:
+        return CollectionConstants.CL_VIDEOS_DEI_ID;
+      case CollectionConstants.CL_PODCASTS_BASE:
+        return CollectionConstants.CL_PODCASTS_BASE_ID;
+      case CollectionConstants.CL_PODCASTS_DEI:
+        return CollectionConstants.CL_PODCASTS_DEI_ID;
+      default:
+        return 0; // Default or unknown collection
+    }
+  }
+
+  public static String[] getAuthors(String authors) {
+    if (authors == null || authors.isEmpty()) {
+      return new String[0];
+    }
+    return authors.split(";");
   }
 }
