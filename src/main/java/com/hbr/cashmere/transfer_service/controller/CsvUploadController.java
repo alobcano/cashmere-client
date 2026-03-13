@@ -7,16 +7,18 @@ import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
 import com.hbr.cashmere.transfer_service.service.CsvService;
 import com.hbr.cashmere.transfer_service.util.CsvUtil;
 import java.util.List;
-import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PathVariable;
+
 
 @RestController
 @RequestMapping("/api/csv")
@@ -92,14 +94,11 @@ public class CsvUploadController {
     }
   }
 
-  @GetMapping("/externalId")
-  public ResponseEntity<Map<String, String>> getUUID(
-    @RequestParam("externalId") String externalId
-  ) {
-    Map<String, String> result = csvService.getCashmereId(externalId);
-    return ResponseEntity.ok(result);
-  }
-
+  /**
+   * Endpoint to upload a CSV file containing deletion manifest data and process its content. The CSV is expected to contain rows of deletion manifest data that will be processed by the CsvService to delete corresponding Omnipubs.
+   * @param file The CSV file to upload
+   * @return A ResponseEntity indicating the result of the operation
+   */
   @DeleteMapping("/delete")
   public ResponseEntity<String> deleteOmnipub(
     @RequestParam("file") MultipartFile file
@@ -121,6 +120,29 @@ public class CsvUploadController {
       }
       return ResponseEntity.ok(
         "Delete request sent for Cashmere rows: " + rows.size()
+      );
+    } catch (Exception e) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+        CsvConstants.PROCESSING_ERROR + e.getMessage()
+      );
+    }
+  }
+
+  @PutMapping("/update")
+  public ResponseEntity<String> updateOmnipubMetadata(@RequestParam("file") MultipartFile file, @RequestParam("collection") String collection) {
+    if (file.isEmpty()) {
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+        CsvConstants.EMPTY_FILE
+      );
+    }
+    try {
+      List<CsvSnowflakeRow> rows = CsvUtil.parseCsvFile(
+        file.getInputStream(),
+        CsvSnowflakeRow.class
+      );
+      csvService.updateOmnipubMetadata(rows, collection);
+      return ResponseEntity.ok(
+        "Metadata update request sent for Cashmere rows: " + rows.size()
       );
     } catch (Exception e) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(

@@ -1,10 +1,12 @@
 package com.hbr.cashmere.transfer_service.util;
 
 import com.hbr.cashmere.transfer_service.constants.CollectionConstants;
+import com.hbr.cashmere.transfer_service.constants.XmlConstants;
 import com.hbr.cashmere.transfer_service.model.CsvDeletionManifestRow;
 import com.hbr.cashmere.transfer_service.model.CsvRow;
 import com.hbr.cashmere.transfer_service.model.CsvSnowflakeRow;
 import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
+import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -131,5 +133,35 @@ public class CsvUtil {
       return new String[0];
     }
     return authors.split(";");
+  }
+
+  /**
+   * Extracts metadata from the XML file content to create an OmnipubMetadata object.
+   *
+   * @param fileContent The XML file content
+   * @return An OmnipubMetadata object containing the extracted metadata
+   */
+  public static OmnipubMetadata getMetadata(byte[] fileContent) {
+    OmnipubMetadata metadata = new OmnipubMetadata();
+    metadata.setTitle(XmlUtil.extractTitle(fileContent));
+    metadata.setAuthors(XmlUtil.extractAuthors(fileContent));
+    metadata.setPublisher("Harvard Business School Publishing - HBD");
+    metadata.setPublicationDate(
+      XmlUtil.extractDate(fileContent, XmlConstants.PUBLISHED_TAG)
+    );
+    metadata.setLastUpdatedDate(
+      XmlUtil.extractDate(fileContent, XmlConstants.UPDATED_TAG)
+    );
+
+    return metadata;
+  }
+
+  public static List<String> getS3Parts(String s3Path) {
+    String[] parts = s3Path.replace("s3://", "").split("/", 2);
+    if (parts.length != 2) {
+      throw new IllegalArgumentException("Invalid S3 path: " + s3Path);
+    }
+    String fileName = parts[1].substring(parts[1].lastIndexOf('/') + 1);
+    return List.of(parts[0], parts[1], fileName);
   }
 }

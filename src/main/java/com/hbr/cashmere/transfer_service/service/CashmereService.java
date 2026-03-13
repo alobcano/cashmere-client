@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
+import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.JsonNode;
 
@@ -21,6 +22,11 @@ public class CashmereService {
     this.webClient = webClient;
   }
 
+  /**
+   * Creates an Omnipub by sending a POST request to the Cashmere API with the provided form data.
+   * @param formData The form data to send in the request
+   * @return A Mono emitting the response body as a String
+   */
   public Mono<String> createOmnipub(
     MultiValueMap<String, HttpEntity<?>> formData
   ) {
@@ -61,6 +67,11 @@ public class CashmereService {
       .bodyToMono(String.class);
   }
 
+  /**
+   * Deletes an Omnipub by sending a DELETE request to the Cashmere API with the provided Cashmere UUID.
+   * @param cashmereUuid The Cashmere UUID of the Omnipub to delete
+   * @return A Mono emitting the response body as a String
+   */
   public Mono<String> deleteOmnipub(String cashmereUuid) {
     return webClient
       .delete()
@@ -97,6 +108,11 @@ public class CashmereService {
       .bodyToMono(String.class);
   }
 
+  /**
+   * Retrieves Omnipubs by sending a GET request to the Cashmere API with the provided external ID.
+   * @param externalId The external ID to filter Omnipubs
+   * @return A Mono emitting the response body as a JsonNode
+   */
   public Mono<JsonNode> getOmnipubs(String externalId) {
     return webClient
       .get()
@@ -112,9 +128,8 @@ public class CashmereService {
       .bodyToMono(JsonNode.class)
       .doOnSuccess(response ->
         log.info(
-          "Successfully retrieved Omnipubs for external_id: {}. Response: {}",
-          externalId,
-          response.toString()
+          "Successfully retrieved Omnipubs for external_id: {}.",
+          externalId
         )
       )
       .doOnError(error ->
@@ -124,5 +139,45 @@ public class CashmereService {
           error.getMessage()
         )
       );
+  }
+
+
+  public Mono<String> updateOmnipub(String cashmereUuid, OmnipubMetadata metadata) {
+    return webClient
+      .put()
+      .uri("/omnipub/{cashmereUuid}/metadata", cashmereUuid)
+      .contentType(MediaType.APPLICATION_JSON)
+      .bodyValue(metadata)
+      .retrieve()
+      .onStatus(HttpStatusCode::is2xxSuccessful, response ->
+        response
+          .bodyToMono(String.class)
+          .flatMap(body -> {
+            log.info(
+              "Omnipub updated successfully, Cashmere UUID: {}, Success response body: {}",
+              cashmereUuid,
+              body
+            );
+            return Mono.empty();
+          })
+      )
+      .onStatus(HttpStatusCode::is4xxClientError, response ->
+        response
+          .bodyToMono(String.class)
+          .flatMap(body -> {
+            log.error("Client error body: {}", body);
+            return Mono.error(new RuntimeException("Client Error: " + body));
+          })
+      )
+      .onStatus(HttpStatusCode::is5xxServerError, response ->
+        response
+          .bodyToMono(String.class)
+          .flatMap(body -> {
+            log.error("Server error body: {}", body);
+            return Mono.error(new RuntimeException("Server Error: " + body));
+          })
+      )
+      .bodyToMono(String.class);
+    
   }
 }
