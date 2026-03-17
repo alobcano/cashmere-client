@@ -7,9 +7,6 @@ import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
 import com.hbr.cashmere.transfer_service.model.GitHubFileWithMetadata;
 import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
 import com.hbr.cashmere.transfer_service.util.CsvUtil;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -50,12 +47,34 @@ public class CsvService {
   public void processCsv(List<CsvSnowflakeRow> rows, String collection) {
     for (CsvSnowflakeRow row : rows) {
       byte[] xmlFile;
+      JsonNode metadataNode = null;
       List<String> s3Path = CsvUtil.getS3Parts(row.getS3Path());
 
       log.info("processing file: {}", s3Path.get(2));
       xmlFile = this.downloadFileFromS3(s3Path, collection);
+      if (xmlFile.length == 0) {
+        log.error(
+          "Failed to download file from S3: s3://{}/{}",
+          s3Path.get(0),
+          s3Path.get(1)
+        );
+        continue;
+      }
+
+      if (collection.contains("Podcasts")) {
+        log.info(
+          "File {} is identified as a podcast based on collection name.",
+          s3Path.get(2)
+        );
+        metadataNode = contentService
+          .fetchMetadata(row.getAvailabilityPk())
+          .block();
+      }
+
       this.createOmnipub(
-        CsvUtil.getMetadata(xmlFile),
+        metadataNode != null
+          ? CsvUtil.getMetadata(xmlFile, metadataNode)
+          : CsvUtil.getMetadata(xmlFile),
         xmlFile,
         CsvUtil.getCollectionId(collection),
         row.getAvailabilityPk(),
@@ -79,7 +98,7 @@ public class CsvService {
         s3Path.get(1),
         e
       );
-      throw new RuntimeException("Failed to download file from S3", e);
+      return new byte[0];
     }
   }
 
@@ -125,23 +144,7 @@ public class CsvService {
       };
       builder.part("file", resource, MediaType.APPLICATION_XML);
 
-      cashmereService
-        .createOmnipub(builder.build())
-        .subscribe(
-          response ->
-            log.info(
-              "Successfully created Omnipub in Cashmere for title: {} and external_id: {}.",
-              metadata.getTitle(),
-              externalId
-            ),
-          error ->
-            log.error(
-              "Error creating Omnipub in Cashmere for title: {} and external_id: {}.",
-              metadata.getTitle(),
-              externalId,
-              error
-            )
-        );
+      cashmereService.createOmnipub(builder.build()).block();
     } catch (Exception e) {
       log.error("Error creating Omnipub for title: {}", metadata.getTitle(), e);
     }
@@ -169,40 +172,16 @@ public class CsvService {
           .block();
         byte[] xmlFile = fileWithMetadata.getContent();
 
-        contentService
+        JsonNode metadataNode = contentService
           .fetchMetadata(row.getAvailabilityPk())
-          .subscribe(json -> {
-            JsonNode availability = json.get("availabilities").get(0);
-            String[] authors = CsvUtil.getAuthors(
-              availability.get("author").asString()
-            );
-            DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern(
-              "yyyy-MM-dd HH:mm:ss.SSS"
-            );
-            String publicationDate = LocalDateTime.parse(
-              availability.get("publicationDate").asString(),
-              inputFormatter
-            )
-              .atOffset(ZoneOffset.UTC)
-              .format(DateTimeFormatter.ISO_INSTANT);
-            OmnipubMetadata metadata = new OmnipubMetadata(
-              row.getTitle(),
-              authors,
-              "Harvard Business School Publishing - Corporate Learning",
-              publicationDate,
-              fileWithMetadata
-                .getLastCommitDate()
-                .atOffset(ZoneOffset.UTC)
-                .format(DateTimeFormatter.ISO_INSTANT)
-            );
-            this.createOmnipub(
-              metadata,
-              xmlFile,
-              CsvUtil.getCollectionId(collection),
-              row.getAvailabilityPk(),
-              filename
-            );
-          });
+          .block();
+        this.createOmnipub(
+          CsvUtil.getMetadata(fileWithMetadata, row.getTitle(), metadataNode),
+          xmlFile,
+          CsvUtil.getCollectionId(collection),
+          row.getAvailabilityPk(),
+          filename
+        );
       } catch (Exception e) {
         log.error("Error processing file: {}", filename, e);
       }
@@ -270,7 +249,10 @@ public class CsvService {
     }
   }
 
-  public void updateOmnipubMetadata(List<CsvSnowflakeRow> rows, String collection) {
+  public void updateOmnipubMetadata(
+    List<CsvSnowflakeRow> rows,
+    String collection
+  ) {
     for (CsvSnowflakeRow row : rows) {
       log.info(
         "Processing metadata update for row with availabilityPk: {}",
@@ -286,24 +268,7 @@ public class CsvService {
         String cashmereUuid = this.getCashmereId(row.getAvailabilityPk());
 
         if (cashmereUuid != null) {
-          cashmereService
-            .updateOmnipub(cashmereUuid, metadata)
-            .subscribe(
-              successResponse ->
-                log.info(
-                  "Successfully sent metadata update request for Cashmere UUID: {}, availabilityPk: {}. Response: {}",
-                  cashmereUuid,
-                  row.getAvailabilityPk(),
-                  successResponse
-                ),
-              error ->
-                log.error(
-                  "Error sending metadata update request for Cashmere UUID: {}, availabilityPk: {}",
-                  cashmereUuid,
-                  row.getAvailabilityPk(),
-                  error
-                )
-            );
+          cashmereService.updateOmnipub(cashmereUuid, metadata).block();
         } else {
           log.warn(
             "No Omnipub found in Cashmere for availabilityPk: {}. Skipping metadata update.",

@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
+import com.hbr.cashmere.transfer_service.constants.ErrorConstants;
 import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.JsonNode;
@@ -52,16 +53,16 @@ public class CashmereService {
         response
           .bodyToMono(String.class)
           .flatMap(body -> {
-            log.error("Client error body: {}", body);
-            return Mono.error(new RuntimeException("Client Error: " + body));
+            log.error(ErrorConstants.CLIENT_ERROR_BODY, body);
+            return Mono.error(new RuntimeException(ErrorConstants.CLIENT_ERROR + body));
           })
       )
       .onStatus(HttpStatusCode::is5xxServerError, response ->
         response
           .bodyToMono(String.class)
           .flatMap(body -> {
-            log.error("Server error body: {}", body);
-            return Mono.error(new RuntimeException("Server Error: " + body));
+            log.error(ErrorConstants.SERVER_ERROR_BODY, body);
+            return Mono.error(new RuntimeException(ErrorConstants.SERVER_ERROR + body));
           })
       )
       .bodyToMono(String.class);
@@ -93,16 +94,16 @@ public class CashmereService {
         response
           .bodyToMono(String.class)
           .flatMap(body -> {
-            log.error("Client error body: {}", body);
-            return Mono.error(new RuntimeException("Client Error: " + body));
+            log.error(ErrorConstants.CLIENT_ERROR_BODY, body);
+            return Mono.error(new RuntimeException(ErrorConstants.CLIENT_ERROR + body));
           })
       )
       .onStatus(HttpStatusCode::is5xxServerError, response ->
         response
           .bodyToMono(String.class)
           .flatMap(body -> {
-            log.error("Server error body: {}", body);
-            return Mono.error(new RuntimeException("Server Error: " + body));
+            log.error(ErrorConstants.SERVER_ERROR_BODY, body);
+            return Mono.error(new RuntimeException(ErrorConstants.SERVER_ERROR + body));
           })
       )
       .bodyToMono(String.class);
@@ -134,8 +135,7 @@ public class CashmereService {
       )
       .doOnError(error ->
         log.error(
-          "Error retrieving Omnipubs for external_id: {}. Error: {}",
-          externalId,
+          ErrorConstants.CLIENT_ERROR_BODY,
           error.getMessage()
         )
       );
@@ -165,16 +165,16 @@ public class CashmereService {
         response
           .bodyToMono(String.class)
           .flatMap(body -> {
-            log.error("Client error body: {}", body);
-            return Mono.error(new RuntimeException("Client Error: " + body));
+            log.error(ErrorConstants.CLIENT_ERROR_BODY, body);
+            return Mono.error(new RuntimeException(ErrorConstants.CLIENT_ERROR + body));
           })
       )
       .onStatus(HttpStatusCode::is5xxServerError, response ->
         response
           .bodyToMono(String.class)
           .flatMap(body -> {
-            log.error("Server error body: {}", body);
-            return Mono.error(new RuntimeException("Server Error: " + body));
+            log.error(ErrorConstants.SERVER_ERROR_BODY, body);
+            return Mono.error(new RuntimeException(ErrorConstants.SERVER_ERROR + body));
           })
       )
       .bodyToMono(String.class);
