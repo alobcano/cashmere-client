@@ -36,7 +36,12 @@ public class CsvUploadController {
   @PostMapping("/upload")
   public ResponseEntity<String> uploadCsv(
     @RequestParam("file") MultipartFile file,
-    @RequestParam("collection") String collection
+    @RequestParam("collection") String collection,
+    @RequestParam(
+      value = "update",
+      required = false,
+      defaultValue = "false"
+    ) boolean update
   ) {
     if (file.isEmpty()) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
@@ -44,46 +49,25 @@ public class CsvUploadController {
       );
     }
     try {
-      List<CsvSnowflakeRow> rows = CsvUtil.parseCsvFile(
-        file.getInputStream(),
-        CsvSnowflakeRow.class
-      );
-      csvService.processCsv(rows, collection);
-      return ResponseEntity.ok(
-        "CSV processed successfully. Rows: " + rows.size()
-      );
-    } catch (Exception e) {
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-        CsvConstants.PROCESSING_ERROR + e.getMessage()
-      );
-    }
-  }
-
-  /**
-   * Endpoint to upload a CSV file containing video data and process its content. The CSV is expected to contain rows of video data that will be processed by the CsvService.
-   * @param file The CSV file to upload
-   * @param collection The collection name to associate with the processed video rows
-   * @return A ResponseEntity indicating the result of the operation
-   */
-  @PostMapping("/video/upload")
-  public ResponseEntity<String> uploadVideo(
-    @RequestParam("file") MultipartFile file,
-    @RequestParam("collection") String collection
-  ) {
-    if (file.isEmpty()) {
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-        CsvConstants.EMPTY_FILE
-      );
-    }
-    try {
-      List<CsvVideoRow> rows = CsvUtil.parseCsvFile(
-        file.getInputStream(),
-        CsvVideoRow.class
-      );
-      csvService.processVideoCsv(rows, collection);
-      return ResponseEntity.ok(
-        "Video CSV processed successfully. Rows: " + rows.size()
-      );
+      if (collection.contains("CL-Videos")) {
+        List<CsvVideoRow> videoRows = CsvUtil.parseCsvFile(
+          file.getInputStream(),
+          CsvVideoRow.class
+        );
+        csvService.processVideoCsv(videoRows, collection, update);
+        return ResponseEntity.ok(
+          "Video CSV processed successfully. Rows: " + videoRows.size()
+        );
+      } else {
+        List<CsvSnowflakeRow> rows = CsvUtil.parseCsvFile(
+          file.getInputStream(),
+          CsvSnowflakeRow.class
+        );
+        csvService.processCsv(rows, collection);
+        return ResponseEntity.ok(
+          "CSV processed successfully. Rows: " + rows.size()
+        );
+      }
     } catch (Exception e) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
         CsvConstants.PROCESSING_ERROR + e.getMessage()
