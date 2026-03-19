@@ -120,9 +120,7 @@ public class CashmereService {
       .uri(uriBuilder ->
         uriBuilder
           .path("/omnipubs")
-          .queryParam("q", "")
           .queryParam("external_id", externalId)
-          .queryParam("view_mode", "published")
           .build()
       )
       .retrieve()

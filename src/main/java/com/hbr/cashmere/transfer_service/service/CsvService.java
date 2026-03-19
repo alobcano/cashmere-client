@@ -43,15 +43,20 @@ public class CsvService {
    *
    * @param rows The list of CSV rows to process
    * @param collection The collection name to associate with the created Omnipubs
+   * @param isUpdate Flag indicating whether the operation is an update
    */
-  public void processCsv(List<CsvSnowflakeRow> rows, String collection) {
+  public void processCsv(
+    List<CsvSnowflakeRow> rows,
+    String collection,
+    boolean isUpdate
+  ) {
     for (CsvSnowflakeRow row : rows) {
       byte[] xmlFile;
       JsonNode metadataNode = null;
       List<String> s3Path = CsvUtil.getS3Parts(row.getS3Path());
 
       log.info("processing file: {}", s3Path.get(2));
-      xmlFile = this.downloadFileFromS3(s3Path, collection);
+      xmlFile = this.downloadFileFromS3(s3Path);
       if (xmlFile.length == 0) {
         log.error(
           "Failed to download file from S3: s3://{}/{}",
@@ -71,6 +76,30 @@ public class CsvService {
           .block();
       }
 
+      String cashmereUuid = this.getCashmereId(row.getAvailabilityPk());
+
+      if (isUpdate) {
+        if (cashmereUuid != null) {
+          OmnipubMetadata metadata =
+            metadataNode != null
+              ? CsvUtil.getMetadata(xmlFile, metadataNode)
+              : CsvUtil.getMetadata(xmlFile);
+          cashmereService.updateOmnipub(cashmereUuid, metadata).block();
+        } else {
+          log.warn(
+            "No Omnipub found in Cashmere for availabilityPk: {}. Skipping metadata update.",
+            row.getAvailabilityPk()
+          );
+        }
+        continue;
+      }
+      if (cashmereUuid != null) {
+        log.warn(
+          "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
+          row.getAvailabilityPk()
+        );
+        continue;
+      }
       this.createOmnipub(
         metadataNode != null
           ? CsvUtil.getMetadata(xmlFile, metadataNode)
@@ -84,18 +113,14 @@ public class CsvService {
   }
 
   /**
-   * Downloads a file from S3 based on the provided S3 path and collection name. If the collection is identified as a podcast, it modifies the key to point to the podcast content.
+   * Downloads a file from S3 based on the provided S3 path.
    * @param s3Path The S3 path components (bucket and key)
-   * @param collection The collection name
    * @return The downloaded file as a byte array
    */
-  private byte[] downloadFileFromS3(List<String> s3Path, String collection) {
+  private byte[] downloadFileFromS3(List<String> s3Path) {
     try {
       String bucketName = s3Path.get(0);
       String key = s3Path.get(1);
-      if (collection.contains("Podcasts")) {
-        key = key.replace("article-content", "podcast-content");
-      }
       return s3FileService.downloadFile(bucketName, key);
     } catch (Exception e) {
       log.error(
@@ -288,62 +313,6 @@ public class CsvService {
         log.error(
           "Error processing deletion manifest row with coreProductId: {} and availabilityPk: {}",
           row.getCoreProductId(),
-          row.getAvailabilityPk(),
-          e
-        );
-      }
-    }
-  }
-
-  /**
-   * Processes a list of CSV rows to update Omnipub metadata in Cashmere. For each row, it downloads the corresponding XML file from S3,
-   * extracts the metadata, retrieves the Cashmere UUID using the availabilityPk, and sends an update request to the Cashmere service with the new metadata.
-   * If no Omnipub is found for the given availabilityPk, it logs a warning and skips the update for that row.
-   *
-   * @param rows The list of CSV rows to process
-   * @param collection The collection name in S3
-   */
-  public void updateOmnipubMetadata(
-    List<CsvSnowflakeRow> rows,
-    String collection
-  ) {
-    for (CsvSnowflakeRow row : rows) {
-      JsonNode metadataNode = null;
-      List<String> s3Path = CsvUtil.getS3Parts(row.getS3Path());
-      log.info(
-        "Processing metadata update for row with availabilityPk: {}",
-        row.getAvailabilityPk()
-      );
-      try {
-        byte[] xmlFile = this.downloadFileFromS3(s3Path, collection);
-
-        if (collection.contains("Podcasts")) {
-          log.info(
-            "File {} is identified as a podcast based on collection name.",
-            s3Path.get(2)
-          );
-          metadataNode = contentService
-            .fetchMetadata(row.getAvailabilityPk())
-            .block();
-        }
-
-        OmnipubMetadata metadata =
-          metadataNode != null
-            ? CsvUtil.getMetadata(xmlFile, metadataNode)
-            : CsvUtil.getMetadata(xmlFile);
-        String cashmereUuid = this.getCashmereId(row.getAvailabilityPk());
-
-        if (cashmereUuid != null) {
-          cashmereService.updateOmnipub(cashmereUuid, metadata).block();
-        } else {
-          log.warn(
-            "No Omnipub found in Cashmere for availabilityPk: {}. Skipping metadata update.",
-            row.getAvailabilityPk()
-          );
-        }
-      } catch (Exception e) {
-        log.error(
-          "Error processing metadata update for row with availabilityPk: {}",
           row.getAvailabilityPk(),
           e
         );

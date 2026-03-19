@@ -1,21 +1,20 @@
 package com.hbr.cashmere.transfer_service.controller;
 
+import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import com.hbr.cashmere.transfer_service.constants.CsvConstants;
 import com.hbr.cashmere.transfer_service.model.CsvDeletionManifestRow;
 import com.hbr.cashmere.transfer_service.model.CsvSnowflakeRow;
 import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
 import com.hbr.cashmere.transfer_service.service.CsvService;
 import com.hbr.cashmere.transfer_service.util.CsvUtil;
-import java.util.List;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/csv")
@@ -63,7 +62,7 @@ public class CsvUploadController {
           file.getInputStream(),
           CsvSnowflakeRow.class
         );
-        csvService.processCsv(rows, collection);
+        csvService.processCsv(rows, collection, update);
         return ResponseEntity.ok(
           "CSV processed successfully. Rows: " + rows.size()
         );
@@ -101,32 +100,6 @@ public class CsvUploadController {
       }
       return ResponseEntity.ok(
         "Delete request sent for Cashmere rows: " + rows.size()
-      );
-    } catch (Exception e) {
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-        CsvConstants.PROCESSING_ERROR + e.getMessage()
-      );
-    }
-  }
-
-  @PutMapping("/update")
-  public ResponseEntity<String> updateOmnipubMetadata(
-    @RequestParam("file") MultipartFile file,
-    @RequestParam("collection") String collection
-  ) {
-    if (file.isEmpty()) {
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-        CsvConstants.EMPTY_FILE
-      );
-    }
-    try {
-      List<CsvSnowflakeRow> rows = CsvUtil.parseCsvFile(
-        file.getInputStream(),
-        CsvSnowflakeRow.class
-      );
-      csvService.updateOmnipubMetadata(rows, collection);
-      return ResponseEntity.ok(
-        "Metadata update request sent for Cashmere rows: " + rows.size()
       );
     } catch (Exception e) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
