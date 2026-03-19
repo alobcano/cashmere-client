@@ -67,10 +67,6 @@ public class CsvService {
       }
 
       if (collection.contains("Podcasts")) {
-        log.info(
-          "File {} is identified as a podcast based on collection name.",
-          s3Path.get(2)
-        );
         metadataNode = contentService
           .fetchMetadata(row.getAvailabilityPk())
           .block();
@@ -222,8 +218,9 @@ public class CsvService {
           metadataNode
         );
 
+        String cashmereUuid = this.getCashmereId(row.getAvailabilityPk());
+
         if (isUpdate) {
-          String cashmereUuid = this.getCashmereId(row.getAvailabilityPk());
           if (cashmereUuid != null) {
             cashmereService.updateOmnipub(cashmereUuid, metadata).block();
           } else {
@@ -232,15 +229,24 @@ public class CsvService {
               row.getAvailabilityPk()
             );
           }
-        } else {
-          this.createOmnipub(
-            metadata,
-            xmlFile,
-            CsvUtil.getCollectionId(collection),
-            row.getAvailabilityPk(),
-            filename
-          );
+          continue;
         }
+
+        if (cashmereUuid != null) {
+          log.warn(
+            "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
+            row.getAvailabilityPk()
+          );
+          continue;
+        }
+
+        this.createOmnipub(
+          metadata,
+          xmlFile,
+          CsvUtil.getCollectionId(collection),
+          row.getAvailabilityPk(),
+          filename
+        );
       } catch (Exception e) {
         log.error("Error processing file: {}", filename, e);
       }
@@ -269,14 +275,14 @@ public class CsvService {
   }
 
   /**
-   * Processes a list of CSV deletion manifest rows, retrieving the corresponding Cashmere UUIDs and sending delete requests
+   * Processes a list of CSV Snowflake rows, retrieving the corresponding Cashmere UUIDs and sending delete requests
    * to the Cashmere service for each Omnipub that matches the availabilityPk in the rows.
-   * @param rows The list of CSV deletion manifest rows to process
+   * @param rows The list of CSV Snowflake rows to process
    */
-  public void deleteOmnipubs(List<CsvDeletionManifestRow> rows) {
-    for (CsvDeletionManifestRow row : rows) {
+  public void deleteOmnipubs(List<CsvSnowflakeRow> rows) {
+    for (CsvSnowflakeRow row : rows) {
       log.info(
-        "Processing deletion manifest row with coreProductId: {} and availabilityPk: {}",
+        "Processing Snowflake row with coreProductId: {} and availabilityPk: {}",
         row.getCoreProductId(),
         row.getAvailabilityPk()
       );
@@ -311,7 +317,7 @@ public class CsvService {
         }
       } catch (Exception e) {
         log.error(
-          "Error processing deletion manifest row with coreProductId: {} and availabilityPk: {}",
+          "Error processing Snowflake row with coreProductId: {} and availabilityPk: {}",
           row.getCoreProductId(),
           row.getAvailabilityPk(),
           e
