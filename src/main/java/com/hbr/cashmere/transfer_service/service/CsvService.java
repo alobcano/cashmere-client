@@ -7,6 +7,7 @@ import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
 import com.hbr.cashmere.transfer_service.model.GitHubFileWithMetadata;
 import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
 import com.hbr.cashmere.transfer_service.util.CsvUtil;
+import com.hbr.cashmere.transfer_service.util.XmlUtil;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -66,7 +67,7 @@ public class CsvService {
         continue;
       }
 
-      if (collection.contains("Podcasts")) {
+      if (XmlUtil.extractAuthors(xmlFile).length == 0) {
         metadataNode = contentService
           .fetchMetadata(row.getAvailabilityPk())
           .block();

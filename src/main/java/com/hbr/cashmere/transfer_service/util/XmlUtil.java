@@ -30,6 +30,18 @@ public class XmlUtil {
   private XmlUtil() {}
 
   /**
+   * Helper method to remove all nodes with a given tag name from a document.
+   * @param document The XML document
+   * @param tagName The tag name to remove
+   */
+  private static void removeNodesByTagName(Document document, String tagName) {
+    NodeList nodes = document.getElementsByTagName(tagName);
+    while (nodes.getLength() > 0) {
+      nodes.item(0).getParentNode().removeChild(nodes.item(0));
+    }
+  }
+
+  /**
    * Decodes HTML entities (&lt;, &gt;) to their corresponding brackets in a string.
    * @param input The string with HTML entities
    * @return The decoded string
@@ -154,6 +166,10 @@ public class XmlUtil {
         for (Element img : images) {
           img.remove();
         }
+        Elements iframes = htmlDoc.select(XmlConstants.IFRAME_TAG);
+        for (Element iframe : iframes) {
+          iframe.remove();
+        }
         String cleanedHtml = htmlDoc.body().html();
         while (contentNode.hasChildNodes()) {
           contentNode.removeChild(contentNode.getFirstChild());
@@ -168,6 +184,18 @@ public class XmlUtil {
       while (imgNodes.getLength() > 0) {
         imgNodes.item(0).getParentNode().removeChild(imgNodes.item(0));
       }
+
+      // Remove iframe tags
+      removeNodesByTagName(document, XmlConstants.IFRAME_TAG);
+
+      // Remove author image URI tags
+      removeNodesByTagName(document, XmlConstants.URI_TAG);
+
+      // Remove other image-related tags
+      removeNodesByTagName(document, XmlConstants.HERO_RESOURCE_TYPE_TAG);
+      removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_URI_TAG);
+      removeNodesByTagName(document, XmlConstants.THUMBNAIL_IMAGE_URI_TAG);
+      removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_TITLE_TAG);
 
       Transformer transformer = TRANSFORMER_FACTORY.newTransformer();
       transformer.setOutputProperty(OutputKeys.INDENT, "yes");
