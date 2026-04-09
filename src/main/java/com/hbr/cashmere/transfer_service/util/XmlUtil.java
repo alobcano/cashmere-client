@@ -195,12 +195,119 @@ public class XmlUtil {
   }
 
   /**
-   * Removes all <img> tags from the given XML content (as byte[]) and returns the cleaned XML as a byte array.
+   * Helper method to clean HTML content by removing unwanted elements and normalizing tags.
+   * @param htmlDoc The Jsoup HTML document to clean
+   */
+  private static void cleanHtmlContent(org.jsoup.nodes.Document htmlDoc) {
+    // Remove images and iframes
+    htmlDoc.select(XmlConstants.IMAGE_TAG).remove();
+    htmlDoc.select(XmlConstants.IFRAME_TAG).remove();
+    
+    // Remove script-related tags
+    htmlDoc.select("script").remove();
+    htmlDoc.select("noscript").remove();
+    
+    // Unwrap nobr tags (preserve content but remove the tag)
+    htmlDoc.select("nobr").forEach(Element::unwrap);
+    
+    // Remove deprecated Flash/embed tags
+    htmlDoc.select("object").remove();
+    htmlDoc.select("embed").remove();
+    htmlDoc.select("param").remove();
+    
+    // Remove malformed custom tags like <http:...>
+    htmlDoc.select("http\\:").remove();
+    
+    // Remove problematic URLs and image file links
+    removeProblematicUrls(htmlDoc);
+    removeImageFileLinks(htmlDoc);
+    
+    // Convert custom HBR tags to standard div tags
+    convertCustomTagsToDiv(htmlDoc, "article-ideainbrief");
+    convertCustomTagsToDiv(htmlDoc, "article-sidebar");
+    convertCustomTagsToDiv(htmlDoc, "article-promo");
+    convertCustomTagsToDiv(htmlDoc, "hbr-component");
+    
+    // Replace deprecated <strike> tags with <s> tags
+    replaceStrikeTags(htmlDoc);
+    
+    // Remove image-related attributes from all elements
+    htmlDoc.select("[data-image-representation-uri]").removeAttr("data-image-representation-uri");
+  }
+
+  /**
+   * Helper method to remove links to image files.
+   * @param htmlDoc The Jsoup HTML document
+   */
+  private static void removeImageFileLinks(org.jsoup.nodes.Document htmlDoc) {
+    Elements links = htmlDoc.select("a[href]");
+    for (Element link : links) {
+      String href = link.attr("href").toLowerCase();
+      if (href.endsWith(".gif") || href.endsWith(".jpg") || 
+          href.endsWith(".jpeg") || href.endsWith(".png") || 
+          href.endsWith(".webp") || href.endsWith(".svg")) {
+        link.remove();
+      }
+    }
+  }
+
+  /**
+   * Helper method to process content nodes and clean their HTML.
+   * @param document The XML document
+   */
+  private static void processContentNodes(Document document) {
+    NodeList contentNodes = document.getElementsByTagName(XmlConstants.CONTENT_TAG);
+    for (int i = 0; i < contentNodes.getLength(); i++) {
+      Node contentNode = contentNodes.item(i);
+      String html = contentNode.getTextContent();
+      org.jsoup.nodes.Document htmlDoc = Jsoup.parse(html);
+      
+      cleanHtmlContent(htmlDoc);
+      
+      String cleanedHtml = htmlDoc.body().html();
+      while (contentNode.hasChildNodes()) {
+        contentNode.removeChild(contentNode.getFirstChild());
+      }
+      org.w3c.dom.CDATASection cdata = document.createCDATASection(cleanedHtml);
+      contentNode.appendChild(cdata);
+    }
+  }
+
+  /**
+   * Helper method to remove all image-related XML tags from the document.
+   * @param document The XML document
+   */
+  private static void removeImageRelatedTags(Document document) {
+    // Remove image tags
+    NodeList imgNodes = document.getElementsByTagName(XmlConstants.IMAGE_TAG);
+    while (imgNodes.getLength() > 0) {
+      imgNodes.item(0).getParentNode().removeChild(imgNodes.item(0));
+    }
+
+    // Remove iframe tags
+    removeNodesByTagName(document, XmlConstants.IFRAME_TAG);
+
+    // Remove author image URI tags
+    removeNodesByTagName(document, XmlConstants.URI_TAG);
+
+    // Remove other image-related tags
+    removeNodesByTagName(document, XmlConstants.HERO_RESOURCE_TYPE_TAG);
+    removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_URI_TAG);
+    removeNodesByTagName(document, XmlConstants.THUMBNAIL_IMAGE_URI_TAG);
+    removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_TITLE_TAG);
+    removeNodesByTagName(document, XmlConstants.FEATURE_IMAGE_URI_TAG);
+    removeNodesByTagName(document, XmlConstants.FEATURE_IMAGE_TITLE_TAG);
+    removeNodesByTagName(document, XmlConstants.FEATURE_IMAGE_CREDITS_TAG);
+    removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_CREDITS_TAG);
+  }
+
+  /**
+   * Processes XML content by removing images and cleaning HTML content.
    *
    * @param xmlBytes The XML content as a byte array
-   * @return The cleaned XML content as a byte array, or null if error
+   * @return The cleaned XML content as a byte array, or empty array if error
    */
-  public static byte[] removeImages(byte[] xmlBytes) {
+  public static byte[] processXml(byte[] xmlBytes) {
     try (
       ByteArrayInputStream bais = new ByteArrayInputStream(xmlBytes);
       ByteArrayOutputStream baos = new ByteArrayOutputStream()
@@ -208,109 +315,9 @@ public class XmlUtil {
       DocumentBuilder builder = FACTORY.newDocumentBuilder();
       Document document = builder.parse(bais);
       document.getDocumentElement().normalize();
-      // Remove <img> tags from HTML inside <ns6:content> elements
-      NodeList contentNodes = document.getElementsByTagName(
-        XmlConstants.CONTENT_TAG
-      );
-      for (int i = 0; i < contentNodes.getLength(); i++) {
-        Node contentNode = contentNodes.item(i);
-        String html = contentNode.getTextContent();
-        org.jsoup.nodes.Document htmlDoc = Jsoup.parse(html);
-        Elements images = htmlDoc.select(XmlConstants.IMAGE_TAG);
-        for (Element img : images) {
-          img.remove();
-        }
-        Elements iframes = htmlDoc.select(XmlConstants.IFRAME_TAG);
-        for (Element iframe : iframes) {
-          iframe.remove();
-        }
-        // Remove script tags
-        Elements scripts = htmlDoc.select("script");
-        for (Element script : scripts) {
-          script.remove();
-        }
-        // Remove noscript tags
-        Elements noscripts = htmlDoc.select("noscript");
-        for (Element noscript : noscripts) {
-          noscript.remove();
-        }
-        // Unwrap nobr tags (preserve content but remove the tag)
-        Elements nobrTags = htmlDoc.select("nobr");
-        for (Element nobr : nobrTags) {
-          nobr.unwrap();
-        }
-        // Remove deprecated Flash/embed tags
-        Elements objects = htmlDoc.select("object");
-        for (Element object : objects) {
-          object.remove();
-        }
-        Elements embeds = htmlDoc.select("embed");
-        for (Element embed : embeds) {
-          embed.remove();
-        }
-        Elements params = htmlDoc.select("param");
-        for (Element param : params) {
-          param.remove();
-        }
-        // Remove malformed custom tags like <http:...>
-        Elements malformedTags = htmlDoc.select("http\\:");
-        for (Element malformed : malformedTags) {
-          malformed.remove();
-        }
-        // Remove problematic URLs (Google cache URLs with colons)
-        removeProblematicUrls(htmlDoc);
-        // Remove links to image files (gif, jpg, jpeg, png, webp, svg)
-        Elements links = htmlDoc.select("a[href]");
-        for (Element link : links) {
-          String href = link.attr("href").toLowerCase();
-          if (href.endsWith(".gif") || href.endsWith(".jpg") || 
-              href.endsWith(".jpeg") || href.endsWith(".png") || 
-              href.endsWith(".webp") || href.endsWith(".svg")) {
-            link.remove();
-          }
-        }
-        // Convert custom HBR tags to standard div tags
-        convertCustomTagsToDiv(htmlDoc, "article-ideainbrief");
-        convertCustomTagsToDiv(htmlDoc, "article-sidebar");
-        convertCustomTagsToDiv(htmlDoc, "article-promo");
-        convertCustomTagsToDiv(htmlDoc, "hbr-component");
-        // Replace deprecated <strike> tags with <s> tags
-        replaceStrikeTags(htmlDoc);
-        // Remove image-related attributes from all elements
-        Elements allElements = htmlDoc.select("[data-image-representation-uri]");
-        for (Element element : allElements) {
-          element.removeAttr("data-image-representation-uri");
-        }
-        String cleanedHtml = htmlDoc.body().html();
-        while (contentNode.hasChildNodes()) {
-          contentNode.removeChild(contentNode.getFirstChild());
-        }
-        org.w3c.dom.CDATASection cdata = document.createCDATASection(
-          cleanedHtml
-        );
-        contentNode.appendChild(cdata);
-      }
-
-      NodeList imgNodes = document.getElementsByTagName(XmlConstants.IMAGE_TAG);
-      while (imgNodes.getLength() > 0) {
-        imgNodes.item(0).getParentNode().removeChild(imgNodes.item(0));
-      }
-
-      // Remove iframe tags
-      removeNodesByTagName(document, XmlConstants.IFRAME_TAG);
-
-      // Remove author image URI tags
-      removeNodesByTagName(document, XmlConstants.URI_TAG);
-
-      // Remove other image-related tags
-      removeNodesByTagName(document, XmlConstants.HERO_RESOURCE_TYPE_TAG);
-      removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_URI_TAG);
-      removeNodesByTagName(document, XmlConstants.THUMBNAIL_IMAGE_URI_TAG);
-      removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_TITLE_TAG);
-      removeNodesByTagName(document, XmlConstants.FEATURE_IMAGE_URI_TAG);
-      removeNodesByTagName(document, XmlConstants.FEATURE_IMAGE_TITLE_TAG);
-      removeNodesByTagName(document, XmlConstants.FEATURE_IMAGE_CREDITS_TAG);
-      removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_CREDITS_TAG);
+      
+      processContentNodes(document);
+      removeImageRelatedTags(document);
 
       Transformer transformer = TRANSFORMER_FACTORY.newTransformer();
       transformer.setOutputProperty(OutputKeys.INDENT, "yes");
@@ -321,7 +328,7 @@ public class XmlUtil {
       transformer.transform(new DOMSource(document), new StreamResult(baos));
       return baos.toByteArray();
     } catch (Exception e) {
-      log.error("Error at removing images from XML file", e);
+      log.error("Error processing XML file", e);
       return new byte[0];
     }
   }

@@ -16,7 +16,7 @@ public class S3FileService {
   }
 
   /**
-   * Downloads a file from S3 and removes images from the XML content.
+   * Downloads a file from S3 and processes the XML content to remove images and clean HTML.
    *
    * @param bucketName The S3 bucket name
    * @param key The S3 object key (path to the XML file)
@@ -29,7 +29,7 @@ public class S3FileService {
       .key(key)
       .build();
     try (var s3Object = s3Client.getObject(getObjectRequest)) {
-      return XmlUtil.removeImages(s3Object.readAllBytes());
+      return XmlUtil.processXml(s3Object.readAllBytes());
     }
   }
 }
