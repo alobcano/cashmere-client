@@ -59,32 +59,57 @@ public class CsvUtil {
     ) {
       for (CSVRecord csvRecord : csvParser) {
         int columnCount = csvRecord.values().length;
-        CsvRow row = null;
+        T row = null;
 
-        switch (columnCount) {
-          case 2:
-            row = new CsvRow(csvRecord.get(0), csvRecord.get(1));
-            break;
-          case 4:
-            row = new CsvSnowflakeRow(
+        if (rowType.equals(CsvRow.class)) {
+          if (columnCount == 2) {
+            row = (T) new CsvRow(csvRecord.get(0), csvRecord.get(1));
+          } else {
+            log.warn(
+              "Expected 2 columns for CsvRow but got {} at line {}: {}",
+              columnCount,
+              csvRecord.getRecordNumber(),
+              csvRecord
+            );
+          }
+        } else if (rowType.equals(CsvSnowflakeRow.class)) {
+          if (columnCount == 4) {
+            row = (T) new CsvSnowflakeRow(
               csvRecord.get(0),
               csvRecord.get(1),
               csvRecord.get(2),
               csvRecord.get(3)
             );
-            break;
-          case 6:
-            row = new CsvDeletionManifestRow(
+          } else {
+            log.warn(
+              "Expected 4 columns for CsvSnowflakeRow but got {} at line {}: {}",
+              columnCount,
+              csvRecord.getRecordNumber(),
+              csvRecord
+            );
+          }
+        } else if (rowType.equals(CsvDeletionManifestRow.class)) {
+          if (columnCount == 7) {
+            row = (T) new CsvDeletionManifestRow(
               csvRecord.get(0),
               csvRecord.get(1),
               csvRecord.get(2),
               csvRecord.get(3),
               csvRecord.get(4),
-              csvRecord.get(5)
+              csvRecord.get(5),
+              csvRecord.get(6)
             );
-            break;
-          case 10:
-            row = new CsvVideoRow(
+          } else {
+            log.warn(
+              "Expected 7 columns for CsvDeletionManifestRow but got {} at line {}: {}",
+              columnCount,
+              csvRecord.getRecordNumber(),
+              csvRecord
+            );
+          }
+        } else if (rowType.equals(CsvVideoRow.class)) {
+          if (columnCount == 10) {
+            row = (T) new CsvVideoRow(
               csvRecord.get(0),
               csvRecord.get(1),
               csvRecord.get(2),
@@ -96,26 +121,24 @@ public class CsvUtil {
               csvRecord.get(8),
               csvRecord.get(9)
             );
-            break;
-          default:
+          } else {
             log.warn(
-              "Skipping malformed line with {} columns at line {}: {}",
+              "Expected 10 columns for CsvVideoRow but got {} at line {}: {}",
               columnCount,
               csvRecord.getRecordNumber(),
               csvRecord
             );
-            break;
-        }
-
-        if (row != null && rowType.isInstance(row)) {
-          rows.add((T) row);
-        } else if (row != null) {
+          }
+        } else {
           log.warn(
-            "Skipping row of type {} (expected {}) at line {}",
-            row.getClass().getSimpleName(),
+            "Unsupported row type: {} at line {}",
             rowType.getSimpleName(),
             csvRecord.getRecordNumber()
           );
+        }
+
+        if (row != null) {
+          rows.add(row);
         }
       }
     } catch (Exception e) {

@@ -89,13 +89,13 @@ public class CsvUploadController {
       );
     }
     try {
-      List<CsvSnowflakeRow> rows = CsvUtil.parseCsvFile(
+      List<CsvDeletionManifestRow> rows = CsvUtil.parseCsvFile(
         file.getInputStream(),
-        CsvSnowflakeRow.class
+        CsvDeletionManifestRow.class
       );
       if (rows.isEmpty()) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-          "CSV file is empty or does not contain valid Snowflake rows"
+          "CSV file is empty or does not contain valid deletion manifest rows"
         );
       }
       csvService.deleteOmnipubs(rows);

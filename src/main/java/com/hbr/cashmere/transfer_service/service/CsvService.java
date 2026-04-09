@@ -1,6 +1,7 @@
 package com.hbr.cashmere.transfer_service.service;
 
 import com.hbr.cashmere.transfer_service.constants.CsvConstants;
+import com.hbr.cashmere.transfer_service.constants.DeleteConstants;
 import com.hbr.cashmere.transfer_service.model.CsvDeletionManifestRow;
 import com.hbr.cashmere.transfer_service.model.CsvSnowflakeRow;
 import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
@@ -97,6 +98,8 @@ public class CsvService {
         );
         continue;
       }
+      // XmlUtil.saveXmlToFile(xmlFile, s3Path.get(2));
+      // log.info("Metadata for {} is: {}", row.getAvailabilityPk(), metadataNode != null ? CsvUtil.getMetadata(xmlFile, metadataNode) : CsvUtil.getMetadata(xmlFile));
       this.createOmnipub(
         metadataNode != null
           ? CsvUtil.getMetadata(xmlFile, metadataNode)
@@ -276,20 +279,22 @@ public class CsvService {
   }
 
   /**
-   * Processes a list of CSV Snowflake rows, retrieving the corresponding Cashmere UUIDs and sending delete requests
+   * Processes a list of CSV Deletion Manifest rows, retrieving the corresponding Cashmere UUIDs and sending delete requests
    * to the Cashmere service for each Omnipub that matches the availabilityPk in the rows.
-   * @param rows The list of CSV Snowflake rows to process
+   * @param rows The list of CSV Deletion Manifest rows to process
    */
-  public void deleteOmnipubs(List<CsvSnowflakeRow> rows) {
-    for (CsvSnowflakeRow row : rows) {
-      log.info(
-        "Processing Snowflake row with coreProductId: {} and availabilityPk: {}",
-        row.getCoreProductId(),
-        row.getAvailabilityPk()
-      );
+  public void deleteOmnipubs(List<CsvDeletionManifestRow> rows) {
+    for (CsvDeletionManifestRow row : rows) {
+      if (!checkIfShouldBeDeleted(row)) {
+        continue;
+      }
       try {
         String cashmereUuid = getCashmereId(row.getAvailabilityPk());
         if (cashmereUuid != null) {
+          log.info(
+            "Found Omnipub in Cashmere for availabilityPk: {}. Sending delete request",
+            row.getAvailabilityPk()
+          );
           cashmereService
             .deleteOmnipub(cashmereUuid)
             .subscribe(
@@ -318,12 +323,36 @@ public class CsvService {
         }
       } catch (Exception e) {
         log.error(
-          "Error processing Snowflake row with coreProductId: {} and availabilityPk: {}",
+          "Error processing Deletion Manifest row with coreProductId: {} and availabilityPk: {}",
           row.getCoreProductId(),
           row.getAvailabilityPk(),
           e
         );
       }
     }
+  }
+
+  private boolean checkIfShouldBeDeleted(CsvDeletionManifestRow row) {
+    boolean isDeleted = false;
+    switch (row.getSource()) {
+      case DeleteConstants.PRODUCT_STATE:
+        isDeleted = !row.getCurrentValue().equals("Approved (All)");
+        break;
+      case DeleteConstants.STATUS:
+        isDeleted = !row.getCurrentValue().equals("C");
+        break;
+      case DeleteConstants.RESTRICTION_CODE:
+        isDeleted = !row.getCurrentValue().equals("99A");
+        break;
+      case DeleteConstants.AI_ELIGIBILITY_SET:
+        isDeleted = row.getCurrentValue().equals("Not Eligible");
+        break;
+      case DeleteConstants.LDE_ASSET_TYPE_CATEGORY:
+        isDeleted = row.getCurrentValue().equals("");
+        break;
+      default:
+        break;
+    }
+    return isDeleted;
   }
 }

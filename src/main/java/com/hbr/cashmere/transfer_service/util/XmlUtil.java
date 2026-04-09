@@ -4,6 +4,8 @@ import com.hbr.cashmere.transfer_service.constants.XmlConstants;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -38,6 +40,56 @@ public class XmlUtil {
     NodeList nodes = document.getElementsByTagName(tagName);
     while (nodes.getLength() > 0) {
       nodes.item(0).getParentNode().removeChild(nodes.item(0));
+    }
+  }
+
+  /**
+   * Helper method to convert custom HTML tags to standard div tags while preserving attributes.
+   * @param htmlDoc The Jsoup HTML document
+   * @param tagName The custom tag name to convert (e.g., "article-sidebar")
+   */
+  private static void convertCustomTagsToDiv(org.jsoup.nodes.Document htmlDoc, String tagName) {
+    Elements customElements = htmlDoc.select(tagName);
+    for (Element element : customElements) {
+      Element div = htmlDoc.createElement("div");
+      // Copy all attributes from the custom element to the div
+      div.attributes().addAll(element.attributes());
+      // Move all children from the custom element to the div
+      div.insertChildren(0, element.childNodes());
+      // Replace the custom element with the div
+      element.replaceWith(div);
+    }
+  }
+
+  /**
+   * Helper method to replace deprecated <strike> tags with standard <s> tags.
+   * @param htmlDoc The Jsoup HTML document
+   */
+  private static void replaceStrikeTags(org.jsoup.nodes.Document htmlDoc) {
+    Elements strikeElements = htmlDoc.select("strike");
+    for (Element strikeElement : strikeElements) {
+      Element sTag = htmlDoc.createElement("s");
+      // Copy all attributes from the strike element to the s tag
+      sTag.attributes().addAll(strikeElement.attributes());
+      // Move all children from the strike element to the s tag
+      sTag.insertChildren(0, strikeElement.childNodes());
+      // Replace the strike element with the s tag
+      strikeElement.replaceWith(sTag);
+    }
+  }
+
+  /**
+   * Helper method to remove problematic URLs that contain patterns that can be misinterpreted.
+   * @param htmlDoc The Jsoup HTML document
+   */
+  private static void removeProblematicUrls(org.jsoup.nodes.Document htmlDoc) {
+    Elements links = htmlDoc.select("a[href]");
+    for (Element link : links) {
+      String href = link.attr("href");
+      // Remove Google cache URLs with colons (e.g., cache:KEY:URL) that can be misinterpreted as IPv6
+      if (href.contains("cache:") && href.split(":").length > 3) {
+        link.remove();
+      }
     }
   }
 
@@ -96,7 +148,7 @@ public class XmlUtil {
       Document doc = builder.parse(bais);
       doc.getDocumentElement().normalize();
       NodeList authorNodes = doc.getElementsByTagName(XmlConstants.AUTHOR_TAG);
-      String[] authors = new String[authorNodes.getLength()];
+      Set<String> authorsSet = new LinkedHashSet<>();
       for (int i = 0; i < authorNodes.getLength(); i++) {
         Node authorNode = authorNodes.item(i);
         String name = null;
@@ -111,9 +163,11 @@ public class XmlUtil {
             break;
           }
         }
-        authors[i] = name != null ? name : "";
+        if (name != null && !name.isEmpty() && !authorsSet.contains(name)) {
+          authorsSet.add(name);
+        }
       }
-      return authors;
+      return authorsSet.toArray(new String[0]);
     } catch (Exception e) {
       log.error("Error extracting authors from XML", e);
     }
@@ -170,6 +224,63 @@ public class XmlUtil {
         for (Element iframe : iframes) {
           iframe.remove();
         }
+        // Remove script tags
+        Elements scripts = htmlDoc.select("script");
+        for (Element script : scripts) {
+          script.remove();
+        }
+        // Remove noscript tags
+        Elements noscripts = htmlDoc.select("noscript");
+        for (Element noscript : noscripts) {
+          noscript.remove();
+        }
+        // Unwrap nobr tags (preserve content but remove the tag)
+        Elements nobrTags = htmlDoc.select("nobr");
+        for (Element nobr : nobrTags) {
+          nobr.unwrap();
+        }
+        // Remove deprecated Flash/embed tags
+        Elements objects = htmlDoc.select("object");
+        for (Element object : objects) {
+          object.remove();
+        }
+        Elements embeds = htmlDoc.select("embed");
+        for (Element embed : embeds) {
+          embed.remove();
+        }
+        Elements params = htmlDoc.select("param");
+        for (Element param : params) {
+          param.remove();
+        }
+        // Remove malformed custom tags like <http:...>
+        Elements malformedTags = htmlDoc.select("http\\:");
+        for (Element malformed : malformedTags) {
+          malformed.remove();
+        }
+        // Remove problematic URLs (Google cache URLs with colons)
+        removeProblematicUrls(htmlDoc);
+        // Remove links to image files (gif, jpg, jpeg, png, webp, svg)
+        Elements links = htmlDoc.select("a[href]");
+        for (Element link : links) {
+          String href = link.attr("href").toLowerCase();
+          if (href.endsWith(".gif") || href.endsWith(".jpg") || 
+              href.endsWith(".jpeg") || href.endsWith(".png") || 
+              href.endsWith(".webp") || href.endsWith(".svg")) {
+            link.remove();
+          }
+        }
+        // Convert custom HBR tags to standard div tags
+        convertCustomTagsToDiv(htmlDoc, "article-ideainbrief");
+        convertCustomTagsToDiv(htmlDoc, "article-sidebar");
+        convertCustomTagsToDiv(htmlDoc, "article-promo");
+        convertCustomTagsToDiv(htmlDoc, "hbr-component");
+        // Replace deprecated <strike> tags with <s> tags
+        replaceStrikeTags(htmlDoc);
+        // Remove image-related attributes from all elements
+        Elements allElements = htmlDoc.select("[data-image-representation-uri]");
+        for (Element element : allElements) {
+          element.removeAttr("data-image-representation-uri");
+        }
         String cleanedHtml = htmlDoc.body().html();
         while (contentNode.hasChildNodes()) {
           contentNode.removeChild(contentNode.getFirstChild());
@@ -196,6 +307,10 @@ public class XmlUtil {
       removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_URI_TAG);
       removeNodesByTagName(document, XmlConstants.THUMBNAIL_IMAGE_URI_TAG);
       removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_TITLE_TAG);
+      removeNodesByTagName(document, XmlConstants.FEATURE_IMAGE_URI_TAG);
+      removeNodesByTagName(document, XmlConstants.FEATURE_IMAGE_TITLE_TAG);
+      removeNodesByTagName(document, XmlConstants.FEATURE_IMAGE_CREDITS_TAG);
+      removeNodesByTagName(document, XmlConstants.RETIRED_IMAGE_CREDITS_TAG);
 
       Transformer transformer = TRANSFORMER_FACTORY.newTransformer();
       transformer.setOutputProperty(OutputKeys.INDENT, "yes");

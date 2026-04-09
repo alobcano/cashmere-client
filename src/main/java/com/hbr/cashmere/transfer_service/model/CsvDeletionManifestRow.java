@@ -9,23 +9,26 @@ import lombok.ToString;
 @EqualsAndHashCode(callSuper = true)
 public class CsvDeletionManifestRow extends CsvRow {
 
-  private String dbtUpdatedAt;
-  private String dbtValidFrom;
-  private String dbtValidTo;
-  private String deletedDetectedAt;
+  private String source;
+  private String previousValue;
+  private String currentValue;
+  private String valueValidFrom;
+  private String valueChangeDetectedAt;
 
   public CsvDeletionManifestRow(
     String coreProductId,
     String availabilityPk,
-    String dbtUpdatedAt,
-    String dbtValidFrom,
-    String dbtValidTo,
-    String deletedDetectedAt
+    String source,
+    String previousValue,
+    String currentValue,
+    String valueValidFrom,
+    String valueChangeDetectedAt
   ) {
     super(coreProductId, availabilityPk);
-    this.dbtUpdatedAt = dbtUpdatedAt;
-    this.dbtValidFrom = dbtValidFrom;
-    this.dbtValidTo = dbtValidTo;
-    this.deletedDetectedAt = deletedDetectedAt;
+    this.source = source;
+    this.previousValue = previousValue;
+    this.currentValue = currentValue;
+    this.valueValidFrom = valueValidFrom;
+    this.valueChangeDetectedAt = valueChangeDetectedAt;
   }
 }

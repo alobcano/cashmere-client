@@ -17,4 +17,8 @@ public class XmlConstants {
   public static final String RETIRED_IMAGE_URI_TAG = "ns6:retired-image-uri";
   public static final String THUMBNAIL_IMAGE_URI_TAG = "ns6:thumbnail-image-uri";
   public static final String RETIRED_IMAGE_TITLE_TAG = "ns6:retired-image-title";
+  public static final String FEATURE_IMAGE_URI_TAG = "ns6:feature-image-uri";
+  public static final String FEATURE_IMAGE_TITLE_TAG = "ns6:feature-image-title";
+  public static final String FEATURE_IMAGE_CREDITS_TAG = "ns6:feature-image-credits";
+  public static final String RETIRED_IMAGE_CREDITS_TAG = "ns6:retired-image-credits";
 }
