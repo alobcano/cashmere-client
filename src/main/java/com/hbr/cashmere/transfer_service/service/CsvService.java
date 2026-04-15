@@ -1,5 +1,6 @@
 package com.hbr.cashmere.transfer_service.service;
 
+import com.hbr.cashmere.transfer_service.constants.CollectionConstants;
 import com.hbr.cashmere.transfer_service.constants.CsvConstants;
 import com.hbr.cashmere.transfer_service.constants.DeleteConstants;
 import com.hbr.cashmere.transfer_service.model.CsvDeletionManifestRow;
@@ -7,6 +8,7 @@ import com.hbr.cashmere.transfer_service.model.CsvSnowflakeRow;
 import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
 import com.hbr.cashmere.transfer_service.model.GitHubFileWithMetadata;
 import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
+import com.hbr.cashmere.transfer_service.model.OmnipubsInCollection;
 import com.hbr.cashmere.transfer_service.util.CsvUtil;
 import com.hbr.cashmere.transfer_service.util.XmlUtil;
 import java.util.List;
@@ -77,18 +79,12 @@ public class CsvService {
       String cashmereUuid = this.getCashmereId(row.getAvailabilityPk());
 
       if (isUpdate) {
-        if (cashmereUuid != null) {
-          OmnipubMetadata metadata =
-            metadataNode != null
-              ? CsvUtil.getMetadata(xmlFile, metadataNode)
-              : CsvUtil.getMetadata(xmlFile);
-          cashmereService.updateOmnipub(cashmereUuid, metadata).block();
-        } else {
-          log.warn(
-            "No Omnipub found in Cashmere for availabilityPk: {}. Skipping metadata update.",
-            row.getAvailabilityPk()
-          );
-        }
+        this.updateOmnipubMetadata(
+          cashmereUuid,
+          metadataNode,
+          xmlFile,
+          row.getAvailabilityPk()
+        );
         continue;
       }
       if (cashmereUuid != null) {
@@ -96,6 +92,7 @@ public class CsvService {
           "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
           row.getAvailabilityPk()
         );
+        this.updateOmnipubCollection(cashmereUuid, CsvUtil.getCollectionId(collection), row.getAvailabilityPk());
         continue;
       }
       // XmlUtil.saveXmlToFile(xmlFile, s3Path.get(2));
@@ -110,6 +107,73 @@ public class CsvService {
         s3Path.get(2)
       );
     }
+  }
+
+  /**
+   * Updates the metadata of an existing Omnipub in Cashmere. If the cashmereUuid is null, it logs a warning and skips the update.
+   * @param cashmereUuid The UUID of the Omnipub in Cashmere
+   * @param metadataNode The metadata node containing updated information
+   * @param xmlFile The XML file content
+   * @param availabilityPk The availability primary key
+   */
+  private void updateOmnipubMetadata(
+    String cashmereUuid,
+    JsonNode metadataNode,
+    byte[] xmlFile,
+    String availabilityPk
+  ) {
+    if (cashmereUuid != null) {
+      OmnipubMetadata metadata =
+        metadataNode != null
+          ? CsvUtil.getMetadata(xmlFile, metadataNode)
+          : CsvUtil.getMetadata(xmlFile);
+      cashmereService.updateOmnipub(cashmereUuid, metadata).block();
+    } else {
+      log.warn(
+        "No Omnipub found in Cashmere for availabilityPk: {}. Skipping metadata update.",
+        availabilityPk
+      );
+    }
+  }
+
+  private void updateOmnipubCollection(
+    String cashmereUuid,
+    int collectionId,
+    String availabilityPk
+  ) {
+    for (Map.Entry<String,Integer> entry : CollectionConstants.COLLECTION_NAME_TO_ID.entrySet()) {
+      if (entry.getValue() == collectionId) {
+        continue;
+      }
+      JsonNode response = cashmereService
+        .getOmnipubs(availabilityPk, entry.getValue())
+        .block();
+      if (
+        response != null &&
+        response.has(CsvConstants.ITEMS) &&
+        response.get(CsvConstants.ITEMS).isArray() &&
+        response.get(CsvConstants.ITEMS).size() > 0
+      ) {
+        log.info("Updating collection from {} to {} for externalID {}", 
+        entry.getKey(), 
+        CollectionConstants.COLLECTION_ID_TO_NAME.get(collectionId), 
+        availabilityPk);
+
+        
+        OmnipubsInCollection omnipubToRemove = new OmnipubsInCollection(List.of(cashmereUuid));
+        cashmereService
+          .removeOmnipubFromCollection(omnipubToRemove, entry.getValue())
+          .block();
+        cashmereService
+          .addOmnipubToCollection(omnipubToRemove, collectionId)
+          .block();
+        return;
+      }      
+    }
+    log.warn(
+        "Skipping collection update for externalId: {}.",
+        availabilityPk
+      );
   }
 
   /**

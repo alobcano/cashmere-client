@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import com.hbr.cashmere.transfer_service.constants.CsvConstants;
 import com.hbr.cashmere.transfer_service.constants.ErrorConstants;
 import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
+import com.hbr.cashmere.transfer_service.model.OmnipubsInCollection;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.JsonNode;
@@ -154,6 +155,55 @@ public class CashmereService {
       );
   }
 
+  /**
+   * Retrieves Omnipubs by sending a GET request to the Cashmere API with the provided external ID and collection name.
+   * @param externalId The external ID to filter Omnipubs
+   * @param collection The collection name to filter Omnipubs
+   * @return A Mono emitting the response body as a JsonNode
+   */
+  public Mono<JsonNode> getOmnipubs(String externalId, Integer collection) {
+    return webClient
+      .get()
+      .uri(uriBuilder ->
+        uriBuilder
+          .path("/omnipubs")
+          .queryParam("external_id", externalId)
+          .queryParam("collection", collection)
+          .build()
+      )
+      .retrieve()
+      .bodyToMono(JsonNode.class)
+      .doOnSuccess(response -> {
+        if (
+          response != null &&
+          response.has(CsvConstants.ITEMS) &&
+          response.get(CsvConstants.ITEMS).isArray() &&
+          response.get(CsvConstants.ITEMS).size() > 0
+        ) {
+          log.info(
+            "Successfully retrieved Omnipubs for external_id: {} and collection: {}",
+            externalId,
+            collection
+          );
+        } else {
+          log.info(
+            "No Omnipubs found for external_id: {} and collection: {}.",
+            externalId,
+            collection
+          );
+        }
+      })
+      .doOnError(error ->
+        log.error(ErrorConstants.CLIENT_ERROR_BODY, error.getMessage())
+      );
+  }
+
+  /**
+   * Updates an Omnipub's metadata by sending a PUT request to the Cashmere API with the provided Cashmere UUID and metadata.
+   * @param cashmereUuid The UUID of the Omnipub in Cashmere
+   * @param metadata The metadata to update
+   * @return A Mono emitting the response body as a String
+   */
   public Mono<String> updateOmnipub(
     String cashmereUuid,
     OmnipubMetadata metadata
@@ -198,4 +248,89 @@ public class CashmereService {
       )
       .bodyToMono(String.class);
   }
+
+  public Mono<String> removeOmnipubFromCollection(OmnipubsInCollection cashmereUuid, int collectionId) {
+    return webClient
+      .post()
+      .uri("/collections/{collection_id}/remove", collectionId)
+      .contentType(MediaType.APPLICATION_JSON)
+      .bodyValue(cashmereUuid)
+      .retrieve()
+      .onStatus(HttpStatusCode::is2xxSuccessful, response ->
+        response
+          .bodyToMono(String.class)
+          .flatMap(body -> {
+            log.info(
+              "Omnipub removed from collection successfully, Cashmere UUIDs: {}, Collection ID: {}",
+              cashmereUuid.getPublicationUuids(),
+              collectionId
+            );
+            return Mono.empty();
+          })
+      )
+      .onStatus(HttpStatusCode::is4xxClientError, response ->
+        response
+          .bodyToMono(String.class)
+          .flatMap(body -> {
+            log.error(ErrorConstants.CLIENT_ERROR_BODY, body);
+            return Mono.error(
+              new RuntimeException(ErrorConstants.CLIENT_ERROR + body)
+            );
+          })
+      )
+      .onStatus(HttpStatusCode::is5xxServerError, response ->
+        response
+          .bodyToMono(String.class)
+          .flatMap(body -> {
+            log.error(ErrorConstants.SERVER_ERROR_BODY, body);
+            return Mono.error(
+              new RuntimeException(ErrorConstants.SERVER_ERROR + body)
+            );
+          })
+      )
+      .bodyToMono(String.class);
+    }
+
+    public Mono<String> addOmnipubToCollection(OmnipubsInCollection cashmereUuid, int collectionId) {
+    return webClient
+      .post()
+      .uri("/collections/{collection_id}/add", collectionId)
+      .contentType(MediaType.APPLICATION_JSON)
+      .bodyValue(cashmereUuid)
+      .retrieve()
+      .onStatus(HttpStatusCode::is2xxSuccessful, response ->
+        response
+          .bodyToMono(String.class)
+          .flatMap(body -> {
+            log.info(
+              "Omnipub added to collection successfully, Cashmere UUIDs: {}, Collection ID: {}",
+              cashmereUuid.getPublicationUuids(),
+              collectionId
+            );
+            return Mono.empty();
+          })
+      )
+      .onStatus(HttpStatusCode::is4xxClientError, response ->
+        response
+          .bodyToMono(String.class)
+          .flatMap(body -> {
+            log.error(ErrorConstants.CLIENT_ERROR_BODY, body);
+            return Mono.error(
+              new RuntimeException(ErrorConstants.CLIENT_ERROR + body)
+            );
+          })
+      )
+      .onStatus(HttpStatusCode::is5xxServerError, response ->
+        response
+          .bodyToMono(String.class)
+          .flatMap(body -> {
+            log.error(ErrorConstants.SERVER_ERROR_BODY, body);
+            return Mono.error(
+              new RuntimeException(ErrorConstants.SERVER_ERROR + body)
+            );
+          })
+      )
+      .bodyToMono(String.class);
+    }
+
 }
