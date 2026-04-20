@@ -35,6 +35,6 @@ out/
 
 ### VS Code ###
 .vscode/
-logs/application.log
+logs/
 XML_CLEANUP_DOCUMENTATION.md
 SERVICE_TESTS_README.md

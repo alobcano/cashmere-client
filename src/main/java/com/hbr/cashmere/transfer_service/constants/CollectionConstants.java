@@ -6,11 +6,11 @@ public class CollectionConstants {
   private CollectionConstants() {}
 
   public static final String CL_ARTICLES_BASE = "CL-Articles-Base";
-  public static final String CL_ARTICLES_DEI = "CL-Articles-DEI";
+  public static final String CL_ARTICLES_DEI = "CL-Articles-Inclusive";
   public static final String CL_VIDEOS_BASE = "CL-Videos-Base";
-  public static final String CL_VIDEOS_DEI = "CL-Videos-DEI";
+  public static final String CL_VIDEOS_DEI = "CL-Videos-Inclusive";
   public static final String CL_PODCASTS_BASE = "CL-Podcasts-Base";
-  public static final String CL_PODCASTS_DEI = "CL-Podcasts-DEI";
+  public static final String CL_PODCASTS_DEI = "CL-Podcasts-Inclusive";
 
   public static final int CL_ARTICLES_BASE_ID = 405;
   public static final int CL_ARTICLES_DEI_ID = 408;

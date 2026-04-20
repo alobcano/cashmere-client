@@ -17,6 +17,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -153,28 +154,21 @@ public class CsvUtil {
   }
 
   /**
-   * Maps a collection name to its corresponding collection ID.
-   * @param collection The name of the collection
-   * @return The ID of the collection
+   * Determines the collection ID based on the filename by checking if the filename contains any of the known collection names. Returns the corresponding collection ID if a match is found, or null if no match is found or if the filename is null.
+   * @param filename The name of the file
+   * @return The ID of the collection, or 0 if no match is found
    */
-  public static int getCollectionId(String collection) {
-    switch (collection) {
-      case CollectionConstants.CL_ARTICLES_BASE:
-        return CollectionConstants.CL_ARTICLES_BASE_ID;
-      case CollectionConstants.CL_ARTICLES_DEI:
-        return CollectionConstants.CL_ARTICLES_DEI_ID;
-      case CollectionConstants.CL_VIDEOS_BASE:
-        return CollectionConstants.CL_VIDEOS_BASE_ID;
-      case CollectionConstants.CL_VIDEOS_DEI:
-        return CollectionConstants.CL_VIDEOS_DEI_ID;
-      case CollectionConstants.CL_PODCASTS_BASE:
-        return CollectionConstants.CL_PODCASTS_BASE_ID;
-      case CollectionConstants.CL_PODCASTS_DEI:
-        return CollectionConstants.CL_PODCASTS_DEI_ID;
-      default:
-        return 0;
-    }
+  public static int determineCollectionId(String filename) {
+  if (filename == null) {
+    return 0;
   }
+  
+  return CollectionConstants.COLLECTION_NAME_TO_ID.entrySet().stream()
+    .filter(entry -> filename.contains(entry.getKey()))
+    .map(Map.Entry::getValue)
+    .findFirst()
+    .orElse(0);
+}
 
   public static String[] getAuthors(String authors) {
     if (authors == null || authors.isEmpty()) {

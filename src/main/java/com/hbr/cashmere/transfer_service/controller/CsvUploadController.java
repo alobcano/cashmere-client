@@ -1,6 +1,7 @@
 package com.hbr.cashmere.transfer_service.controller;
 
 import java.util.List;
+import java.util.Objects;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,7 +36,6 @@ public class CsvUploadController {
   @PostMapping("/upload")
   public ResponseEntity<String> uploadCsv(
     @RequestParam("file") MultipartFile file,
-    @RequestParam("collection") String collection,
     @RequestParam(
       value = "update",
       required = false,
@@ -47,13 +47,14 @@ public class CsvUploadController {
         CsvConstants.EMPTY_FILE
       );
     }
+    String fileName = file.getOriginalFilename();
     try {
-      if (collection.contains("CL-Videos")) {
+      if (Objects.nonNull(fileName) && fileName.contains("CL-Videos")) {
         List<CsvVideoRow> videoRows = CsvUtil.parseCsvFile(
           file.getInputStream(),
           CsvVideoRow.class
         );
-        csvService.processVideoCsv(videoRows, collection, update);
+        csvService.processVideoCsv(videoRows, CsvUtil.determineCollectionId(fileName), update);
         return ResponseEntity.ok(
           "Video CSV processed successfully. Rows: " + videoRows.size()
         );
@@ -62,7 +63,7 @@ public class CsvUploadController {
           file.getInputStream(),
           CsvSnowflakeRow.class
         );
-        csvService.processCsv(rows, collection, update);
+        csvService.processCsv(rows, CsvUtil.determineCollectionId(fileName), update);
         return ResponseEntity.ok(
           "CSV processed successfully. Rows: " + rows.size()
         );

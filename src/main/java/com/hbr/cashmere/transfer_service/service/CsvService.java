@@ -51,7 +51,7 @@ public class CsvService {
    */
   public void processCsv(
     List<CsvSnowflakeRow> rows,
-    String collection,
+    int collectionId,
     boolean isUpdate
   ) {
     for (CsvSnowflakeRow row : rows) {
@@ -92,7 +92,7 @@ public class CsvService {
           "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
           row.getAvailabilityPk()
         );
-        this.updateOmnipubCollection(cashmereUuid, CsvUtil.getCollectionId(collection), row.getAvailabilityPk());
+        this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
         continue;
       }
       // XmlUtil.saveXmlToFile(xmlFile, s3Path.get(2));
@@ -102,7 +102,7 @@ public class CsvService {
           ? CsvUtil.getMetadata(xmlFile, metadataNode)
           : CsvUtil.getMetadata(xmlFile),
         xmlFile,
-        CsvUtil.getCollectionId(collection),
+        collectionId,
         row.getAvailabilityPk(),
         s3Path.get(2)
       );
@@ -159,7 +159,7 @@ public class CsvService {
         CollectionConstants.COLLECTION_ID_TO_NAME.get(collectionId), 
         availabilityPk);
 
-        
+
         OmnipubsInCollection omnipubToRemove = new OmnipubsInCollection(List.of(cashmereUuid));
         cashmereService
           .removeOmnipubFromCollection(omnipubToRemove, entry.getValue())
@@ -253,7 +253,7 @@ public class CsvService {
    */
   public void processVideoCsv(
     List<CsvVideoRow> rows,
-    String collection,
+    int collectionId,
     boolean isUpdate
   ) {
     for (CsvVideoRow row : rows) {
@@ -311,7 +311,7 @@ public class CsvService {
         this.createOmnipub(
           metadata,
           xmlFile,
-          CsvUtil.getCollectionId(collection),
+          collectionId,
           row.getAvailabilityPk(),
           filename
         );
