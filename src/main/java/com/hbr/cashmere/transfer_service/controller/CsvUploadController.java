@@ -109,4 +109,31 @@ public class CsvUploadController {
       );
     }
   }
+
+  /**
+   * Endpoint to process all XML files from the local xml_files directory.
+   * Reads each XML file, extracts metadata, and creates Omnipubs in Cashmere.
+   * 
+   * @param collectionId The collection ID to associate with the created Omnipubs
+   * @param xmlFilesPath The path to the directory containing XML files (optional, defaults to "xml_files")
+   * @return A ResponseEntity indicating the result of the operation
+   */
+  @PostMapping("/process-local-xml")
+  public ResponseEntity<String> processLocalXmlFiles(
+    @RequestParam("collectionId") int collectionId,
+    @RequestParam("availabilityId") String availabilityId,
+    @RequestParam("file") MultipartFile file,
+    @RequestParam("isUpdate") boolean isUpdate
+  ) {
+    try {
+      csvService.processLocalXmlFiles(collectionId, availabilityId, file, isUpdate);
+      return ResponseEntity.ok(
+        "Successfully processed XML file: " + file.getOriginalFilename()
+      );
+    } catch (Exception e) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+        "Error processing local XML files: " + e.getMessage()
+      );
+    }
+  }
 }

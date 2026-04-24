@@ -333,4 +333,26 @@ public class CashmereService {
       .bodyToMono(String.class);
     }
 
+    public Mono<JsonNode> getOmnipub(String omnipubUuid) {
+      return webClient
+        .get()
+        .uri("/omnipub/{omnipubUuid}", omnipubUuid)
+        .retrieve()
+        .bodyToMono(JsonNode.class)
+        .doOnSuccess(response -> {
+          if (response != null) {
+            log.info(
+              "Successfully retrieved Omnipub for omnipubUuid: {}",
+              omnipubUuid
+            );
+          } else {
+            log.info("No Omnipub found for omnipubUuid: {}.", omnipubUuid);
+          }
+        })
+        .doOnError(error ->
+          log.error(ErrorConstants.CLIENT_ERROR_BODY, error.getMessage())
+        );
+    
+    }
+
 }

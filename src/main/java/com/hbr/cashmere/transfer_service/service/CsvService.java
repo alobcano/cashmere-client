@@ -3,6 +3,7 @@ package com.hbr.cashmere.transfer_service.service;
 import com.hbr.cashmere.transfer_service.constants.CollectionConstants;
 import com.hbr.cashmere.transfer_service.constants.CsvConstants;
 import com.hbr.cashmere.transfer_service.constants.DeleteConstants;
+import com.hbr.cashmere.transfer_service.constants.XmlConstants;
 import com.hbr.cashmere.transfer_service.model.CsvDeletionManifestRow;
 import com.hbr.cashmere.transfer_service.model.CsvSnowflakeRow;
 import com.hbr.cashmere.transfer_service.model.CsvVideoRow;
@@ -19,6 +20,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
 
 @Service
@@ -92,11 +94,22 @@ public class CsvService {
           "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
           row.getAvailabilityPk()
         );
-        this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
+        this.updateOmnipubCollection(
+          cashmereUuid,
+          collectionId,
+          row.getAvailabilityPk()
+        );
+        this.updateOmnipubContent(
+          xmlFile,
+          cashmereUuid,
+          row.getAvailabilityPk(),
+          metadataNode,
+          s3Path.get(2),
+          collectionId
+        );
         continue;
       }
-      // XmlUtil.saveXmlToFile(xmlFile, s3Path.get(2));
-      // log.info("Metadata for {} is: {}", row.getAvailabilityPk(), metadataNode != null ? CsvUtil.getMetadata(xmlFile, metadataNode) : CsvUtil.getMetadata(xmlFile));
+
       this.createOmnipub(
         metadataNode != null
           ? CsvUtil.getMetadata(xmlFile, metadataNode)
@@ -105,6 +118,67 @@ public class CsvService {
         collectionId,
         row.getAvailabilityPk(),
         s3Path.get(2)
+      );
+    }
+  }
+
+  private void updateOmnipubContent(
+    byte[] xmlFile,
+    String cashmereUuid,
+    String availabilityPk,
+    JsonNode metadataNode,
+    String filename,
+    int collectionId
+  ) {
+    try {
+      JsonNode omnipub = cashmereService.getOmnipub(cashmereUuid).block();
+      if (
+        omnipub != null &&
+        omnipub.has("data") &&
+        omnipub.get("data").has("updated_date")
+      ) {
+        String existingUpdatedDate = omnipub
+          .get("data")
+          .get("updated_date")
+          .asString();
+        String newUpdatedDate = XmlUtil.extractDate(
+          xmlFile,
+          XmlConstants.UPDATED_TAG
+        );
+        if (
+          newUpdatedDate != null &&
+          newUpdatedDate.compareTo(existingUpdatedDate) > 0
+        ) {
+          log.info(
+            "Updating content for Omnipub with UUID: {}. Existing updated_date: {}, New updated_date: {}",
+            cashmereUuid,
+            existingUpdatedDate,
+            newUpdatedDate
+          );
+          cashmereService.deleteOmnipub(cashmereUuid).block();
+          this.createOmnipub(
+            metadataNode != null
+              ? CsvUtil.getMetadata(xmlFile, metadataNode)
+              : CsvUtil.getMetadata(xmlFile),
+            xmlFile,
+            collectionId,
+            availabilityPk,
+            filename
+          );
+        }
+      } else {
+        log.warn(
+          "No metadata found for Omnipub with UUID: {}. Skipping content update for availabilityPk: {}.",
+          cashmereUuid,
+          availabilityPk
+        );
+      }
+    } catch (Exception e) {
+      log.error(
+        "Error fetching Omnipub details for Cashmere UUID: {}, availabilityPk: {}",
+        cashmereUuid,
+        availabilityPk,
+        e
       );
     }
   }
@@ -141,7 +215,10 @@ public class CsvService {
     int collectionId,
     String availabilityPk
   ) {
-    for (Map.Entry<String,Integer> entry : CollectionConstants.COLLECTION_NAME_TO_ID.entrySet()) {
+    for (Map.Entry<
+      String,
+      Integer
+    > entry : CollectionConstants.COLLECTION_NAME_TO_ID.entrySet()) {
       if (entry.getValue() == collectionId) {
         continue;
       }
@@ -154,13 +231,16 @@ public class CsvService {
         response.get(CsvConstants.ITEMS).isArray() &&
         response.get(CsvConstants.ITEMS).size() > 0
       ) {
-        log.info("Updating collection from {} to {} for externalID {}", 
-        entry.getKey(), 
-        CollectionConstants.COLLECTION_ID_TO_NAME.get(collectionId), 
-        availabilityPk);
+        log.info(
+          "Updating collection from {} to {} for externalID {}",
+          entry.getKey(),
+          CollectionConstants.COLLECTION_ID_TO_NAME.get(collectionId),
+          availabilityPk
+        );
 
-
-        OmnipubsInCollection omnipubToRemove = new OmnipubsInCollection(List.of(cashmereUuid));
+        OmnipubsInCollection omnipubToRemove = new OmnipubsInCollection(
+          List.of(cashmereUuid)
+        );
         cashmereService
           .removeOmnipubFromCollection(omnipubToRemove, entry.getValue())
           .block();
@@ -168,12 +248,9 @@ public class CsvService {
           .addOmnipubToCollection(omnipubToRemove, collectionId)
           .block();
         return;
-      }      
+      }
     }
-    log.warn(
-        "Skipping collection update for externalId: {}.",
-        availabilityPk
-      );
+    log.warn("Skipping collection update for externalId: {}.", availabilityPk);
   }
 
   /**
@@ -418,5 +495,59 @@ public class CsvService {
         break;
     }
     return isDeleted;
+  }
+
+  public void processLocalXmlFiles(
+    int collectionId,
+    String availabilityId,
+    MultipartFile file,
+    boolean isUpdate
+  ) {
+    byte[] xmlFile;
+    JsonNode metadataNode = null;
+    try {
+      xmlFile = file.getInputStream().readAllBytes();
+      if (xmlFile.length == 0) {
+        log.error(
+          "Failed to read XML file content for file: {}",
+          file.getOriginalFilename()
+        );
+        return;
+      }
+
+      if (XmlUtil.extractAuthors(xmlFile).length == 0) {
+        metadataNode = contentService.fetchMetadata(availabilityId).block();
+      }
+
+      String cashmereUuid = this.getCashmereId(availabilityId);
+
+      if (cashmereUuid != null) {
+        if (isUpdate) {
+          this.updateOmnipubMetadata(
+            cashmereUuid,
+            metadataNode,
+            xmlFile,
+            availabilityId
+          );
+          return;
+        }
+
+        this.updateOmnipubContent(
+          xmlFile,
+          cashmereUuid,
+          availabilityId,
+          metadataNode,
+          file.getOriginalFilename(),
+          collectionId
+        );
+      }
+    } catch (Exception e) {
+      log.error(
+        "Error processing local XML file: {} with availabilityId: {}",
+        file.getOriginalFilename(),
+        availabilityId,
+        e
+      );
+    }
   }
 }
