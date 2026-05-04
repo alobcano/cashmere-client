@@ -62,28 +62,18 @@ public class CsvUtil {
         int columnCount = csvRecord.values().length;
         T row = null;
 
-        if (rowType.equals(CsvRow.class)) {
-          if (columnCount == 2) {
-            row = (T) new CsvRow(csvRecord.get(0), csvRecord.get(1));
-          } else {
-            log.warn(
-              "Expected 2 columns for CsvRow but got {} at line {}: {}",
-              columnCount,
-              csvRecord.getRecordNumber(),
-              csvRecord
-            );
-          }
-        } else if (rowType.equals(CsvSnowflakeRow.class)) {
-          if (columnCount == 4) {
+        if (rowType.equals(CsvSnowflakeRow.class)) {
+          if (columnCount == 5) {
             row = (T) new CsvSnowflakeRow(
               csvRecord.get(0),
               csvRecord.get(1),
               csvRecord.get(2),
-              csvRecord.get(3)
+              csvRecord.get(3),
+              csvRecord.get(4)
             );
           } else {
             log.warn(
-              "Expected 4 columns for CsvSnowflakeRow but got {} at line {}: {}",
+              "Expected 5 columns for CsvSnowflakeRow but got {} at line {}: {}",
               columnCount,
               csvRecord.getRecordNumber(),
               csvRecord
@@ -109,7 +99,7 @@ public class CsvUtil {
             );
           }
         } else if (rowType.equals(CsvVideoRow.class)) {
-          if (columnCount == 10) {
+          if (columnCount == 11) {
             row = (T) new CsvVideoRow(
               csvRecord.get(0),
               csvRecord.get(1),
@@ -120,11 +110,12 @@ public class CsvUtil {
               csvRecord.get(6),
               csvRecord.get(7),
               csvRecord.get(8),
-              csvRecord.get(9)
+              csvRecord.get(9),
+              csvRecord.get(10)
             );
           } else {
             log.warn(
-              "Expected 10 columns for CsvVideoRow but got {} at line {}: {}",
+              "Expected 11 columns for CsvVideoRow but got {} at line {}: {}",
               columnCount,
               csvRecord.getRecordNumber(),
               csvRecord
@@ -183,11 +174,11 @@ public class CsvUtil {
    * @param fileContent The XML file content
    * @return An OmnipubMetadata object containing the extracted metadata
    */
-  public static OmnipubMetadata getMetadata(byte[] fileContent) {
+  public static OmnipubMetadata getMetadata(byte[] fileContent, String publisher) {
     OmnipubMetadata metadata = new OmnipubMetadata();
     metadata.setTitle(XmlUtil.extractTitle(fileContent));
     metadata.setAuthors(XmlUtil.extractAuthors(fileContent));
-    metadata.setPublisher("Harvard Business School Publishing - HBD");
+    metadata.setPublisher(publisher);
     metadata.setPublicationDate(
       XmlUtil.extractDate(fileContent, XmlConstants.PUBLISHED_TAG)
     );
@@ -204,12 +195,12 @@ public class CsvUtil {
    * @param node The JsonNode containing additional metadata
    * @return An OmnipubMetadata object containing the extracted metadata
    */
-  public static OmnipubMetadata getMetadata(byte[] fileContent, JsonNode node) {
+  public static OmnipubMetadata getMetadata(byte[] fileContent, JsonNode node, String publisher) {
     JsonNode metadata = node.get("availabilities").get(0);
     OmnipubMetadata omnipubMetadata = new OmnipubMetadata();
     omnipubMetadata.setTitle(XmlUtil.extractTitle(fileContent));
-    omnipubMetadata.setAuthors(getAuthors(metadata.get("author").asString()));
-    omnipubMetadata.setPublisher("Harvard Business School Publishing - HBD");
+    omnipubMetadata.setAuthors(getAuthors(metadata.has("author") ? metadata.get("author").asString() : null));
+    omnipubMetadata.setPublisher(publisher);
     omnipubMetadata.setPublicationDate(
       XmlUtil.extractDate(fileContent, XmlConstants.PUBLISHED_TAG)
     );

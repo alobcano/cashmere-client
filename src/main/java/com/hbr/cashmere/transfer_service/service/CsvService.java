@@ -85,7 +85,8 @@ public class CsvService {
           cashmereUuid,
           metadataNode,
           xmlFile,
-          row.getAvailabilityPk()
+          row.getAvailabilityPk(),
+          row.getCopyrightHolderDisplayName()
         );
         continue;
       }
@@ -105,15 +106,16 @@ public class CsvService {
           row.getAvailabilityPk(),
           metadataNode,
           s3Path.get(2),
-          collectionId
+          collectionId,
+          row.getCopyrightHolderDisplayName()
         );
         continue;
       }
 
       this.createOmnipub(
         metadataNode != null
-          ? CsvUtil.getMetadata(xmlFile, metadataNode)
-          : CsvUtil.getMetadata(xmlFile),
+          ? CsvUtil.getMetadata(xmlFile, metadataNode, row.getCopyrightHolderDisplayName())
+          : CsvUtil.getMetadata(xmlFile, row.getCopyrightHolderDisplayName()),
         xmlFile,
         collectionId,
         row.getAvailabilityPk(),
@@ -128,7 +130,8 @@ public class CsvService {
     String availabilityPk,
     JsonNode metadataNode,
     String filename,
-    int collectionId
+    int collectionId,
+    String copyrightHolderDisplayName
   ) {
     try {
       JsonNode omnipub = cashmereService.getOmnipub(cashmereUuid).block();
@@ -158,14 +161,19 @@ public class CsvService {
           cashmereService.deleteOmnipub(cashmereUuid).block();
           this.createOmnipub(
             metadataNode != null
-              ? CsvUtil.getMetadata(xmlFile, metadataNode)
-              : CsvUtil.getMetadata(xmlFile),
+              ? CsvUtil.getMetadata(xmlFile, metadataNode, copyrightHolderDisplayName)
+              : CsvUtil.getMetadata(xmlFile, copyrightHolderDisplayName),
             xmlFile,
             collectionId,
             availabilityPk,
             filename
           );
         }
+        log.info(
+          "Skipping content update for Omnipub with UUID: {} as existing updated_date: {} is more recent than new updated_date: {}",
+          cashmereUuid,
+          existingUpdatedDate,
+          newUpdatedDate        );
       } else {
         log.warn(
           "No metadata found for Omnipub with UUID: {}. Skipping content update for availabilityPk: {}.",
@@ -194,13 +202,14 @@ public class CsvService {
     String cashmereUuid,
     JsonNode metadataNode,
     byte[] xmlFile,
-    String availabilityPk
+    String availabilityPk,
+    String copyrightHolderDisplayName
   ) {
     if (cashmereUuid != null) {
       OmnipubMetadata metadata =
         metadataNode != null
-          ? CsvUtil.getMetadata(xmlFile, metadataNode)
-          : CsvUtil.getMetadata(xmlFile);
+          ? CsvUtil.getMetadata(xmlFile, metadataNode, copyrightHolderDisplayName)
+          : CsvUtil.getMetadata(xmlFile, copyrightHolderDisplayName);
       cashmereService.updateOmnipub(cashmereUuid, metadata).block();
     } else {
       log.warn(
@@ -527,7 +536,8 @@ public class CsvService {
             cashmereUuid,
             metadataNode,
             xmlFile,
-            availabilityId
+            availabilityId,
+            "Unknown Copyright Holder"
           );
           return;
         }
@@ -538,7 +548,8 @@ public class CsvService {
           availabilityId,
           metadataNode,
           file.getOriginalFilename(),
-          collectionId
+          collectionId,
+          "Unknown Copyright Holder"
         );
       }
     } catch (Exception e) {

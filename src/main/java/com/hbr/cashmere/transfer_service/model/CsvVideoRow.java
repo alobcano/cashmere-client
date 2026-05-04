@@ -17,6 +17,7 @@ public class CsvVideoRow extends CsvRow {
   private String copyrightHolder;
   private String aiEligibilitySet;
   private String productType;
+  private String copyrightHolderDisplayName;
 
   public CsvVideoRow(
     String coreProductId,
@@ -28,7 +29,8 @@ public class CsvVideoRow extends CsvRow {
     String title,
     String copyrightHolder,
     String aiEligibilitySet,
-    String productType
+    String productType,
+    String copyrightHolderDisplayName
   ) {
     super(coreProductId, availabilityPk);
     this.alternateIdType1 = alternateIdType1;
@@ -39,5 +41,6 @@ public class CsvVideoRow extends CsvRow {
     this.copyrightHolder = copyrightHolder;
     this.aiEligibilitySet = aiEligibilitySet;
     this.productType = productType;
+    this.copyrightHolderDisplayName = copyrightHolderDisplayName;
   }
 }
