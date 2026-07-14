@@ -32,7 +32,6 @@ public class CsvUploadController {
    * data that will be processed by the CsvService.
    *
    * @param file The CSV file to upload
-   * @param collection The collection name to associate with the processed rows
    * @return A ResponseEntity indicating the result of the operation
    */
   @PostMapping("/upload")

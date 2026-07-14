@@ -206,7 +206,7 @@ public class CashmereService {
               if (response != null
                   && response.has(CsvConstants.ITEMS)
                   && response.get(CsvConstants.ITEMS).isArray()
-                  && response.get(CsvConstants.ITEMS).size() > 0) {
+                  && !response.get(CsvConstants.ITEMS).isEmpty()) {
                 log.info("Successfully retrieved Omnipubs for external_id: {}", externalId);
               } else {
                 log.info("No Omnipubs found for external_id: {}.", externalId);
@@ -240,7 +240,7 @@ public class CashmereService {
               if (response != null
                   && response.has(CsvConstants.ITEMS)
                   && response.get(CsvConstants.ITEMS).isArray()
-                  && response.get(CsvConstants.ITEMS).size() > 0) {
+                  && !response.get(CsvConstants.ITEMS).isEmpty()) {
                 log.info(
                     "Successfully retrieved Omnipubs for external_id: {} and collection: {}",
                     externalId,

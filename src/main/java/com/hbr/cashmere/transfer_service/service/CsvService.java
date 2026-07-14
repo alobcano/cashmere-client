@@ -49,7 +49,7 @@ public class CsvService {
    * Processes a list of CSV rows, downloading XML files from S3, extracting metadata, and creating Omnipubs in Cashmere.
    *
    * @param rows The list of CSV rows to process
-   * @param collection The collection name to associate with the created Omnipubs
+   * @param collectionId The collection name to associate with the created Omnipubs
    * @param isUpdate Flag indicating whether the operation is an update
    */
   public void processCsv(
@@ -243,7 +243,7 @@ public class CsvService {
         response != null &&
         response.has(CsvConstants.ITEMS) &&
         response.get(CsvConstants.ITEMS).isArray() &&
-        response.get(CsvConstants.ITEMS).size() > 0
+        !response.get(CsvConstants.ITEMS).isEmpty()
       ) {
         log.info(
           "Updating collection from {} to {} for externalID {}",
@@ -442,7 +442,7 @@ public class CsvService {
       response != null &&
       response.has(CsvConstants.ITEMS) &&
       response.get(CsvConstants.ITEMS).isArray() &&
-      response.get(CsvConstants.ITEMS).size() > 0
+      !response.get(CsvConstants.ITEMS).isEmpty()
     ) {
       JsonNode firstItem = response.get(CsvConstants.ITEMS).get(0);
       return firstItem.get("uuid").asString();
@@ -516,7 +516,7 @@ public class CsvService {
         isDeleted = row.getCurrentValue().equals("Not Eligible");
         break;
       case DeleteConstants.LDE_ASSET_TYPE_CATEGORY:
-        isDeleted = row.getCurrentValue().equals("");
+        isDeleted = row.getCurrentValue().isEmpty();
         break;
       default:
         break;

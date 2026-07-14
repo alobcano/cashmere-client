@@ -359,7 +359,7 @@ public class XmlUtil {
 
       Transformer transformer = TRANSFORMER_FACTORY.newTransformer();
       transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-      transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+      transformer.setOutputProperty(APACHE_INDENT_AMOUNT_KEY, DEFAULT_INDENT_AMOUNT);
       transformer.transform(new DOMSource(document), new StreamResult(baos));
       return baos.toByteArray();
     } catch (Exception e) {
