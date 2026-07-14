@@ -220,7 +220,8 @@ public class CsvUtil {
   public static OmnipubMetadata getMetadata(
     GitHubFileWithMetadata file,
     String title,
-    JsonNode contentMetadata
+    JsonNode contentMetadata,
+    String publisher
   ) {
     JsonNode metadata = contentMetadata.get("availabilities").get(0);
     DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern(
@@ -236,9 +237,7 @@ public class CsvUtil {
     OmnipubMetadata omnipubMetadata = new OmnipubMetadata();
     omnipubMetadata.setTitle(title);
     omnipubMetadata.setAuthors(getAuthors(metadata.get("author").asString()));
-    omnipubMetadata.setPublisher(
-      "Harvard Business School Publishing - Corporate Learning"
-    );
+    omnipubMetadata.setPublisher(publisher.isEmpty() ? "Harvard Business Publishing" : publisher);
     omnipubMetadata.setPublicationDate(publicationDate);
     omnipubMetadata.setLastUpdatedDate(
       file

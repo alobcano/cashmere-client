@@ -12,6 +12,7 @@ import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
 import com.hbr.cashmere.transfer_service.model.OmnipubsInCollection;
 import com.hbr.cashmere.transfer_service.util.CsvUtil;
 import com.hbr.cashmere.transfer_service.util.XmlUtil;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -59,7 +60,11 @@ public class CsvService {
     for (CsvSnowflakeRow row : rows) {
       byte[] xmlFile;
       JsonNode metadataNode = null;
-      List<String> s3Path = CsvUtil.getS3Parts(row.getS3Path());
+      List<String> s3Path = new ArrayList<>();
+      // List<String> s3Path = CsvUtil.getS3Parts(row.getS3Path());
+      s3Path.add("hbrg-prod");
+      s3Path.add(row.getS3Path() + ".xml");
+      s3Path.add(row.getS3Path().substring(row.getS3Path().lastIndexOf("/") + 1) + ".xml");
 
       log.info("processing file: {}", s3Path.get(2));
       xmlFile = this.downloadFileFromS3(s3Path);
@@ -299,6 +304,11 @@ public class CsvService {
     String filename
   ) {
     try {
+      if (metadata == null || fileContent == null || fileContent.length == 0) {
+        log.error("Invalid createOmnipub request. metadata or fileContent is missing.");
+        return;
+      }
+
       MultipartBodyBuilder builder = new MultipartBodyBuilder();
       builder.part("collection_ids", collectionId);
       builder.part("external_id", externalId);
@@ -357,20 +367,18 @@ public class CsvService {
       try {
         log.info("processing file: {}", filename);
 
-        GitHubFileWithMetadata fileWithMetadata = gitService
-          .downloadXmlWithMetadata(filename)
-          .block();
-        byte[] xmlFile = fileWithMetadata.getContent();
+        GitHubFileWithMetadata fileWithMetadata =
+            gitService.downloadXmlWithMetadata(filename).block();
+        byte[] xmlFile = XmlUtil.replaceAssetNameTag(fileWithMetadata.getContent(), row.getTitle());
 
-        JsonNode metadataNode = contentService
-          .fetchMetadata(row.getAvailabilityPk())
-          .block();
+        JsonNode metadataNode = contentService.fetchMetadata(row.getAvailabilityPk()).block();
 
-        OmnipubMetadata metadata = CsvUtil.getMetadata(
-          fileWithMetadata,
-          row.getTitle(),
-          metadataNode
-        );
+        OmnipubMetadata metadata =
+            CsvUtil.getMetadata(
+                fileWithMetadata,
+                row.getTitle(),
+                metadataNode,
+                row.getCopyrightHolderDisplayName());
 
         String cashmereUuid = this.getCashmereId(row.getAvailabilityPk());
 
@@ -379,37 +387,51 @@ public class CsvService {
             cashmereService.updateOmnipub(cashmereUuid, metadata).block();
           } else {
             log.warn(
-              "No Omnipub found in Cashmere for availabilityPk: {}. Skipping metadata update.",
-              row.getAvailabilityPk()
-            );
+                "No Omnipub found in Cashmere for availabilityPk: {}. Skipping metadata update.",
+                row.getAvailabilityPk());
           }
           continue;
         }
 
         if (cashmereUuid != null) {
           log.warn(
-            "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
-            row.getAvailabilityPk()
-          );
+              "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
+              row.getAvailabilityPk());
+          // this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
+          this.updateOmnipubVideoContent(
+              xmlFile, cashmereUuid, row.getAvailabilityPk(), metadata, filename, collectionId);
           continue;
         }
 
-        this.createOmnipub(
-          metadata,
-          xmlFile,
-          collectionId,
-          row.getAvailabilityPk(),
-          filename
-        );
+        this.createOmnipub(metadata, xmlFile, collectionId, row.getAvailabilityPk(), filename);
       } catch (Exception e) {
         log.error("Error processing file: {}", filename, e);
       }
     }
   }
 
+  private void updateOmnipubVideoContent(
+      byte[] xmlFile,
+      String cashmereUuid,
+      String availabilityPk,
+      OmnipubMetadata metadata,
+      String filename,
+      int collectionId) {
+    try {
+      cashmereService.deleteOmnipub(cashmereUuid).block();
+      this.createOmnipub(metadata, xmlFile, collectionId, availabilityPk, filename);
+    } catch (Exception e) {
+      log.error(
+          "Error updating video content for Omnipub with UUID: {}, availabilityPk: {}",
+          cashmereUuid,
+          availabilityPk,
+          e);
+    }
+  }
+
   /**
-   * Retrieves the Cashmere UUID for a given external ID by querying the Cashmere service. If an Omnipub with the specified
-   * external ID exists, it returns the UUID; otherwise, it returns null.
+   * Retrieves the Cashmere UUID for a given external ID by querying the Cashmere service. If an
+   * Omnipub with the specified external ID exists, it returns the UUID; otherwise, it returns null.
    *
    * @param externalId The external ID of the Omnipub
    * @return The Cashmere UUID of the Omnipub, or null if not found
@@ -442,42 +464,38 @@ public class CsvService {
         String cashmereUuid = getCashmereId(row.getAvailabilityPk());
         if (cashmereUuid != null) {
           log.info(
-            "Found Omnipub in Cashmere for availabilityPk: {}. Sending delete request",
-            row.getAvailabilityPk()
-          );
+              "Found Omnipub in Cashmere for availabilityPk: {}. Sending delete request",
+              row.getAvailabilityPk());
           cashmereService
-            .deleteOmnipub(cashmereUuid)
-            .subscribe(
-              successResponse ->
-                log.info(
-                  "Successfully sent delete request for Cashmere UUID: {}, coreProductId: {}, availabilityPk: {}. Response: {}",
-                  cashmereUuid,
-                  row.getCoreProductId(),
-                  row.getAvailabilityPk(),
-                  successResponse
-                ),
-              error ->
-                log.error(
-                  "Error sending delete request for Cashmere UUID: {}, coreProductId: {}, availabilityPk: {}",
-                  cashmereUuid,
-                  row.getCoreProductId(),
-                  row.getAvailabilityPk(),
-                  error
-                )
-            );
+              .deleteOmnipub(cashmereUuid)
+              .subscribe(
+                  successResponse ->
+                      log.info(
+                          "Successfully sent delete request for Cashmere UUID: {}, coreProductId:"
+                              + " {}, availabilityPk: {}. Response: {}",
+                          cashmereUuid,
+                          row.getCoreProductId(),
+                          row.getAvailabilityPk(),
+                          successResponse),
+                  error ->
+                      log.error(
+                          "Error sending delete request for Cashmere UUID: {}, coreProductId: {},"
+                              + " availabilityPk: {}",
+                          cashmereUuid,
+                          row.getCoreProductId(),
+                          row.getAvailabilityPk(),
+                          error));
         } else {
           log.warn(
-            "No Omnipub found in Cashmere for availabilityPk: {}. Skipping deletion.",
-            row.getAvailabilityPk()
-          );
+              "No Omnipub found in Cashmere for availabilityPk: {}. Skipping deletion.",
+              row.getAvailabilityPk());
         }
       } catch (Exception e) {
         log.error(
-          "Error processing Deletion Manifest row with coreProductId: {} and availabilityPk: {}",
-          row.getCoreProductId(),
-          row.getAvailabilityPk(),
-          e
-        );
+            "Error processing Deletion Manifest row with coreProductId: {} and availabilityPk: {}",
+            row.getCoreProductId(),
+            row.getAvailabilityPk(),
+            e);
       }
     }
   }
@@ -506,59 +524,40 @@ public class CsvService {
     return isDeleted;
   }
 
-  public void processLocalXmlFiles(
-    int collectionId,
-    String availabilityId,
-    MultipartFile file,
-    boolean isUpdate
-  ) {
+  public void processLocalXmlFiles(MultipartFile file) {
     byte[] xmlFile;
     JsonNode metadataNode = null;
     try {
       xmlFile = file.getInputStream().readAllBytes();
       if (xmlFile.length == 0) {
-        log.error(
-          "Failed to read XML file content for file: {}",
-          file.getOriginalFilename()
-        );
+        log.error("Failed to read XML file content for file: {}", file.getOriginalFilename());
         return;
       }
 
-      if (XmlUtil.extractAuthors(xmlFile).length == 0) {
-        metadataNode = contentService.fetchMetadata(availabilityId).block();
-      }
+      xmlFile = XmlUtil.replaceAssetNameTag(file.getBytes(), "Flipping Imposter Syndrome");
+      XmlUtil.saveXmlToFile(xmlFile, file.getOriginalFilename());
+      // if (XmlUtil.extractAuthors(xmlFile).length == 0) {
+      //   metadataNode = contentService.fetchMetadata(null).block();
+      // }
 
-      String cashmereUuid = this.getCashmereId(availabilityId);
+      // String cashmereUuid = this.getCashmereId(null);
 
-      if (cashmereUuid != null) {
-        if (isUpdate) {
-          this.updateOmnipubMetadata(
-            cashmereUuid,
-            metadataNode,
-            xmlFile,
-            availabilityId,
-            "Unknown Copyright Holder"
-          );
-          return;
-        }
-
-        this.updateOmnipubContent(
-          xmlFile,
-          cashmereUuid,
-          availabilityId,
-          metadataNode,
-          file.getOriginalFilename(),
-          collectionId,
-          "Unknown Copyright Holder"
-        );
-      }
+      // if (cashmereUuid != null) {
+      //   this.updateOmnipubContent(
+      //       xmlFile,
+      //       cashmereUuid,
+      //       null,
+      //       metadataNode,
+      //       file.getOriginalFilename(),
+      //       null,
+      //       "Unknown Copyright Holder");
+      // }
     } catch (Exception e) {
       log.error(
-        "Error processing local XML file: {} with availabilityId: {}",
-        file.getOriginalFilename(),
-        availabilityId,
-        e
-      );
+          "Error processing local XML file: {} with availabilityId: {}",
+          file.getOriginalFilename(),
+          null,
+          e);
     }
   }
 }

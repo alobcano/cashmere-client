@@ -25,10 +25,7 @@ class CashmereServiceTest {
     mockWebServer = new MockWebServer();
     mockWebServer.start();
 
-    String baseUrl = String.format(
-      "http://localhost:%s",
-      mockWebServer.getPort()
-    );
+    String baseUrl = String.format("http://localhost:%s", mockWebServer.getPort());
     WebClient webClient = WebClient.builder().baseUrl(baseUrl).build();
     cashmereService = new CashmereService(webClient);
   }
@@ -43,27 +40,29 @@ class CashmereServiceTest {
     // Given
     String responseBody = "{\"uuid\":\"test-uuid\",\"status\":\"created\"}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(201)
-        .setBody(responseBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(201)
+            .setBody(responseBody)
+            .addHeader("Content-Type", "application/json"));
 
     MultiValueMap<String, HttpEntity<?>> formData = new LinkedMultiValueMap<>();
     formData.add("external_id", new HttpEntity<>("test-external-id"));
     formData.add("collection_ids", new HttpEntity<>("123"));
+    formData.add("html_content", new HttpEntity<>("<html><body>Test content</body></html>"));
 
     // When & Then
-    StepVerifier.create(
-      cashmereService.createOmnipub(formData)
-    ).verifyComplete();
+    StepVerifier.create(cashmereService.createOmnipub(formData))
+        .assertNext(
+            response -> {
+              assertThat(response).contains("test-uuid");
+              assertThat(response).contains("created");
+            })
+        .verifyComplete();
 
     RecordedRequest request = mockWebServer.takeRequest();
     assertThat(request.getPath()).isEqualTo("/omnipub");
     assertThat(request.getMethod()).isEqualTo("POST");
-    assertThat(request.getHeader("Content-Type")).contains(
-      "multipart/form-data"
-    );
+    assertThat(request.getHeader("Content-Type")).contains("multipart/form-data");
   }
 
   @Test
@@ -71,23 +70,21 @@ class CashmereServiceTest {
     // Given
     String errorBody = "{\"error\":\"Invalid request\"}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(400)
-        .setBody(errorBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(400)
+            .setBody(errorBody)
+            .addHeader("Content-Type", "application/json"));
 
     MultiValueMap<String, HttpEntity<?>> formData = new LinkedMultiValueMap<>();
     formData.add("external_id", new HttpEntity<>("test-external-id"));
 
     // When & Then
     StepVerifier.create(cashmereService.createOmnipub(formData))
-      .expectErrorMatches(
-        throwable ->
-          throwable instanceof RuntimeException &&
-          throwable.getMessage().contains("Client Error")
-      )
-      .verify();
+        .expectErrorMatches(
+            throwable ->
+                throwable instanceof RuntimeException
+                    && throwable.getMessage().contains("Client Error"))
+        .verify();
   }
 
   @Test
@@ -95,23 +92,21 @@ class CashmereServiceTest {
     // Given
     String errorBody = "{\"error\":\"Internal server error\"}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(500)
-        .setBody(errorBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(500)
+            .setBody(errorBody)
+            .addHeader("Content-Type", "application/json"));
 
     MultiValueMap<String, HttpEntity<?>> formData = new LinkedMultiValueMap<>();
     formData.add("external_id", new HttpEntity<>("test-external-id"));
 
     // When & Then
     StepVerifier.create(cashmereService.createOmnipub(formData))
-      .expectErrorMatches(
-        throwable ->
-          throwable instanceof RuntimeException &&
-          throwable.getMessage().contains("Server Error")
-      )
-      .verify();
+        .expectErrorMatches(
+            throwable ->
+                throwable instanceof RuntimeException
+                    && throwable.getMessage().contains("Server Error"))
+        .verify();
   }
 
   @Test
@@ -119,23 +114,18 @@ class CashmereServiceTest {
     // Given
     String responseBody = "{\"status\":\"deleted\"}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(200)
-        .setBody(responseBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(responseBody)
+            .addHeader("Content-Type", "application/json"));
 
     String cashmereUuid = "test-uuid-123";
 
     // When & Then
-    StepVerifier.create(
-      cashmereService.deleteOmnipub(cashmereUuid)
-    ).verifyComplete();
+    StepVerifier.create(cashmereService.deleteOmnipub(cashmereUuid)).verifyComplete();
 
     RecordedRequest request = mockWebServer.takeRequest();
-    assertThat(request.getPath()).isEqualTo(
-      "/omnipub/" + cashmereUuid + "/deprecate"
-    );
+    assertThat(request.getPath()).isEqualTo("/omnipub/" + cashmereUuid + "/deprecate");
     assertThat(request.getMethod()).isEqualTo("DELETE");
   }
 
@@ -144,49 +134,44 @@ class CashmereServiceTest {
     // Given
     String errorBody = "{\"error\":\"Not found\"}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(404)
-        .setBody(errorBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(404)
+            .setBody(errorBody)
+            .addHeader("Content-Type", "application/json"));
 
     // When & Then
     StepVerifier.create(cashmereService.deleteOmnipub("non-existent-uuid"))
-      .expectErrorMatches(
-        throwable ->
-          throwable instanceof RuntimeException &&
-          throwable.getMessage().contains("Client Error")
-      )
-      .verify();
+        .expectErrorMatches(
+            throwable ->
+                throwable instanceof RuntimeException
+                    && throwable.getMessage().contains("Client Error"))
+        .verify();
   }
 
   @Test
   void getOmnipubs_Success() throws Exception {
     // Given
-    String responseBody =
-      "{\"items\":[{\"uuid\":\"uuid1\",\"external_id\":\"ext1\"}],\"total\":1}";
+    String responseBody = "{\"items\":[{\"uuid\":\"uuid1\",\"external_id\":\"ext1\"}],\"total\":1}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(200)
-        .setBody(responseBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(responseBody)
+            .addHeader("Content-Type", "application/json"));
 
     String externalId = "test-external-id";
 
     // When & Then
     StepVerifier.create(cashmereService.getOmnipubs(externalId))
-      .assertNext(jsonNode -> {
-        assertThat(jsonNode.has("items")).isTrue();
-        assertThat(jsonNode.get("items").isArray()).isTrue();
-        assertThat(jsonNode.get("items").size()).isEqualTo(1);
-      })
-      .verifyComplete();
+        .assertNext(
+            jsonNode -> {
+              assertThat(jsonNode.has("items")).isTrue();
+              assertThat(jsonNode.get("items").isArray()).isTrue();
+              assertThat(jsonNode.get("items").size()).isEqualTo(1);
+            })
+        .verifyComplete();
 
     RecordedRequest request = mockWebServer.takeRequest();
-    assertThat(request.getPath()).isEqualTo(
-      "/omnipubs?external_id=" + externalId
-    );
+    assertThat(request.getPath()).isEqualTo("/omnipubs?external_id=" + externalId);
     assertThat(request.getMethod()).isEqualTo("GET");
   }
 
@@ -195,19 +180,19 @@ class CashmereServiceTest {
     // Given
     String responseBody = "{\"items\":[],\"total\":0}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(200)
-        .setBody(responseBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(responseBody)
+            .addHeader("Content-Type", "application/json"));
 
     // When & Then
     StepVerifier.create(cashmereService.getOmnipubs("non-existent-id"))
-      .assertNext(jsonNode -> {
-        assertThat(jsonNode.has("items")).isTrue();
-        assertThat(jsonNode.get("items").size()).isZero();
-      })
-      .verifyComplete();
+        .assertNext(
+            jsonNode -> {
+              assertThat(jsonNode.has("items")).isTrue();
+              assertThat(jsonNode.get("items").size()).isZero();
+            })
+        .verifyComplete();
   }
 
   @Test
@@ -215,30 +200,25 @@ class CashmereServiceTest {
     // Given
     String responseBody = "{\"uuid\":\"test-uuid\",\"status\":\"updated\"}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(200)
-        .setBody(responseBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(responseBody)
+            .addHeader("Content-Type", "application/json"));
 
     String cashmereUuid = "test-uuid-123";
-    OmnipubMetadata metadata = new OmnipubMetadata(
-      "Test Title",
-      new String[] { "Author 1", "Author 2" },
-      "Test Publisher",
-      "2024-01-01",
-      "2024-01-15"
-    );
+    OmnipubMetadata metadata =
+        new OmnipubMetadata(
+            "Test Title",
+            new String[] {"Author 1", "Author 2"},
+            "Test Publisher",
+            "2024-01-01",
+            "2024-01-15");
 
     // When & Then
-    StepVerifier.create(
-      cashmereService.updateOmnipub(cashmereUuid, metadata)
-    ).verifyComplete();
+    StepVerifier.create(cashmereService.updateOmnipub(cashmereUuid, metadata)).verifyComplete();
 
     RecordedRequest request = mockWebServer.takeRequest();
-    assertThat(request.getPath()).isEqualTo(
-      "/omnipub/" + cashmereUuid + "/metadata"
-    );
+    assertThat(request.getPath()).isEqualTo("/omnipub/" + cashmereUuid + "/metadata");
     assertThat(request.getMethod()).isEqualTo("PUT");
     assertThat(request.getHeader("Content-Type")).contains("application/json");
   }
@@ -248,28 +228,20 @@ class CashmereServiceTest {
     // Given
     String errorBody = "{\"error\":\"Invalid metadata\"}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(400)
-        .setBody(errorBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(400)
+            .setBody(errorBody)
+            .addHeader("Content-Type", "application/json"));
 
-    OmnipubMetadata metadata = new OmnipubMetadata(
-      "Test Title",
-      new String[] {},
-      null,
-      null,
-      null
-    );
+    OmnipubMetadata metadata = new OmnipubMetadata("Test Title", new String[] {}, null, null, null);
 
     // When & Then
     StepVerifier.create(cashmereService.updateOmnipub("test-uuid", metadata))
-      .expectErrorMatches(
-        throwable ->
-          throwable instanceof RuntimeException &&
-          throwable.getMessage().contains("Client Error")
-      )
-      .verify();
+        .expectErrorMatches(
+            throwable ->
+                throwable instanceof RuntimeException
+                    && throwable.getMessage().contains("Client Error"))
+        .verify();
   }
 
   @Test
@@ -277,27 +249,19 @@ class CashmereServiceTest {
     // Given
     String errorBody = "{\"error\":\"Internal server error\"}";
     mockWebServer.enqueue(
-      new MockResponse()
-        .setResponseCode(500)
-        .setBody(errorBody)
-        .addHeader("Content-Type", "application/json")
-    );
+        new MockResponse()
+            .setResponseCode(500)
+            .setBody(errorBody)
+            .addHeader("Content-Type", "application/json"));
 
-    OmnipubMetadata metadata = new OmnipubMetadata(
-      "Test Title",
-      new String[] {},
-      null,
-      null,
-      null
-    );
+    OmnipubMetadata metadata = new OmnipubMetadata("Test Title", new String[] {}, null, null, null);
 
     // When & Then
     StepVerifier.create(cashmereService.updateOmnipub("test-uuid", metadata))
-      .expectErrorMatches(
-        throwable ->
-          throwable instanceof RuntimeException &&
-          throwable.getMessage().contains("Server Error")
-      )
-      .verify();
+        .expectErrorMatches(
+            throwable ->
+                throwable instanceof RuntimeException
+                    && throwable.getMessage().contains("Server Error"))
+        .verify();
   }
 }
