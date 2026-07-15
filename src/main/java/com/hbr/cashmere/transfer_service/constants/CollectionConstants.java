@@ -13,12 +13,12 @@ public class CollectionConstants {
   public static final String CL_PODCASTS_BASE = "CL-Podcasts-Base";
   public static final String CL_PODCASTS_DEI = "CL-Podcasts-Inclusive";
 
-  public static final int CL_ARTICLES_BASE_ID = 405;
-  public static final int CL_ARTICLES_DEI_ID = 408;
-  public static final int CL_VIDEOS_BASE_ID = 409;
-  public static final int CL_VIDEOS_DEI_ID = 410;
-  public static final int CL_PODCASTS_BASE_ID = 411;
-  public static final int CL_PODCASTS_DEI_ID = 412;
+  public static final int CL_ARTICLES_BASE_ID = 451;
+  public static final int CL_ARTICLES_DEI_ID = 452;
+  public static final int CL_VIDEOS_BASE_ID = 453;
+  public static final int CL_VIDEOS_DEI_ID = 454;
+  public static final int CL_PODCASTS_BASE_ID = 455;
+  public static final int CL_PODCASTS_DEI_ID = 456;
 
   public static final Map<String, Integer> COLLECTION_NAME_TO_ID = Map.of(
     CL_ARTICLES_BASE, CL_ARTICLES_BASE_ID,

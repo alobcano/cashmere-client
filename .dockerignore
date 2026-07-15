@@ -1,0 +1,39 @@
+# Exclude build artifacts
+build/
+.gradle/
+bin/
+
+# Exclude logs
+logs/
+*.log
+
+# Exclude IDE files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Exclude git
+.git/
+.gitignore
+
+# Exclude Docker files
+Dockerfile
+.dockerignore
+compose.yaml
+
+# Exclude documentation
+*.md
+*.xml
+
+# Exclude test results
+**/test-results/
+**/reports/
+
+# Exclude temporary files
+*.tmp
+*.bak
+*.swp
+*~
+

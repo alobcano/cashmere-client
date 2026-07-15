@@ -34,11 +34,10 @@ public class CsvService {
   private final GitService gitService;
 
   public CsvService(
-    S3FileService s3FileService,
-    CashmereService cashmereService,
-    ContentService contentService,
-    GitService gitService
-  ) {
+      S3FileService s3FileService,
+      CashmereService cashmereService,
+      ContentService contentService,
+      GitService gitService) {
     this.s3FileService = s3FileService;
     this.cashmereService = cashmereService;
     this.contentService = contentService;
@@ -46,17 +45,14 @@ public class CsvService {
   }
 
   /**
-   * Processes a list of CSV rows, downloading XML files from S3, extracting metadata, and creating Omnipubs in Cashmere.
+   * Processes a list of CSV rows, downloading XML files from S3, extracting metadata, and creating
+   * Omnipubs in Cashmere.
    *
    * @param rows The list of CSV rows to process
    * @param collectionId The collection name to associate with the created Omnipubs
    * @param isUpdate Flag indicating whether the operation is an update
    */
-  public void processCsv(
-    List<CsvSnowflakeRow> rows,
-    int collectionId,
-    boolean isUpdate
-  ) {
+  public void processCsv(List<CsvSnowflakeRow> rows, int collectionId, boolean isUpdate) {
     for (CsvSnowflakeRow row : rows) {
       byte[] xmlFile;
       JsonNode metadataNode = null;
@@ -69,198 +65,152 @@ public class CsvService {
       log.info("processing file: {}", s3Path.get(2));
       xmlFile = this.downloadFileFromS3(s3Path);
       if (xmlFile.length == 0) {
-        log.error(
-          "Failed to download file from S3: s3://{}/{}",
-          s3Path.get(0),
-          s3Path.get(1)
-        );
+        log.error("Failed to download file from S3: s3://{}/{}", s3Path.get(0), s3Path.get(1));
         continue;
       }
 
       if (XmlUtil.extractAuthors(xmlFile).length == 0) {
-        metadataNode = contentService
-          .fetchMetadata(row.getAvailabilityPk())
-          .block();
+        metadataNode = contentService.fetchMetadata(row.getAvailabilityPk()).block();
       }
 
       String cashmereUuid = this.getCashmereId(row.getAvailabilityPk());
 
       if (isUpdate) {
         this.updateOmnipubMetadata(
-          cashmereUuid,
-          metadataNode,
-          xmlFile,
-          row.getAvailabilityPk(),
-          row.getCopyrightHolderDisplayName()
-        );
+            cashmereUuid,
+            metadataNode,
+            xmlFile,
+            row.getAvailabilityPk(),
+            row.getCopyrightHolderDisplayName());
         continue;
       }
       if (cashmereUuid != null) {
         log.warn(
-          "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
-          row.getAvailabilityPk()
-        );
-        this.updateOmnipubCollection(
-          cashmereUuid,
-          collectionId,
-          row.getAvailabilityPk()
-        );
+            "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
+            row.getAvailabilityPk());
+        this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
         this.updateOmnipubContent(
-          xmlFile,
-          cashmereUuid,
-          row.getAvailabilityPk(),
-          metadataNode,
-          s3Path.get(2),
-          collectionId,
-          row.getCopyrightHolderDisplayName()
-        );
+            xmlFile,
+            cashmereUuid,
+            row.getAvailabilityPk(),
+            metadataNode,
+            s3Path.get(2),
+            collectionId,
+            row.getCopyrightHolderDisplayName());
         continue;
       }
 
-      this.createOmnipub(
-        metadataNode != null
-          ? CsvUtil.getMetadata(xmlFile, metadataNode, row.getCopyrightHolderDisplayName())
-          : CsvUtil.getMetadata(xmlFile, row.getCopyrightHolderDisplayName()),
-        xmlFile,
-        collectionId,
-        row.getAvailabilityPk(),
-        s3Path.get(2)
-      );
+       this.createOmnipub(
+          metadataNode != null
+              ? CsvUtil.getMetadata(xmlFile, metadataNode, row.getCopyrightHolderDisplayName())
+              : CsvUtil.getMetadata(xmlFile, row.getCopyrightHolderDisplayName()),
+          xmlFile,
+          collectionId,
+          row.getAvailabilityPk(),
+          s3Path.get(2));
     }
   }
 
   private void updateOmnipubContent(
-    byte[] xmlFile,
-    String cashmereUuid,
-    String availabilityPk,
-    JsonNode metadataNode,
-    String filename,
-    int collectionId,
-    String copyrightHolderDisplayName
-  ) {
+      byte[] xmlFile,
+      String cashmereUuid,
+      String availabilityPk,
+      JsonNode metadataNode,
+      String filename,
+      int collectionId,
+      String copyrightHolderDisplayName) {
     try {
       JsonNode omnipub = cashmereService.getOmnipub(cashmereUuid).block();
-      if (
-        omnipub != null &&
-        omnipub.has("data") &&
-        omnipub.get("data").has("updated_date")
-      ) {
-        String existingUpdatedDate = omnipub
-          .get("data")
-          .get("updated_date")
-          .asString();
-        String newUpdatedDate = XmlUtil.extractDate(
-          xmlFile,
-          XmlConstants.UPDATED_TAG
-        );
-        if (
-          newUpdatedDate != null &&
-          newUpdatedDate.compareTo(existingUpdatedDate) > 0
-        ) {
+      if (omnipub != null && omnipub.has("data") && omnipub.get("data").has("updated_date")) {
+        String existingUpdatedDate = omnipub.get("data").get("updated_date").asString();
+        String newUpdatedDate = XmlUtil.extractDate(xmlFile, XmlConstants.UPDATED_TAG);
+        if (newUpdatedDate != null && newUpdatedDate.compareTo(existingUpdatedDate) > 0) {
           log.info(
-            "Updating content for Omnipub with UUID: {}. Existing updated_date: {}, New updated_date: {}",
-            cashmereUuid,
-            existingUpdatedDate,
-            newUpdatedDate
-          );
+              "Updating content for Omnipub with UUID: {}. Existing updated_date: {}, New"
+                  + " updated_date: {}",
+              cashmereUuid,
+              existingUpdatedDate,
+              newUpdatedDate);
           cashmereService.deleteOmnipub(cashmereUuid).block();
           this.createOmnipub(
-            metadataNode != null
-              ? CsvUtil.getMetadata(xmlFile, metadataNode, copyrightHolderDisplayName)
-              : CsvUtil.getMetadata(xmlFile, copyrightHolderDisplayName),
-            xmlFile,
-            collectionId,
-            availabilityPk,
-            filename
-          );
+              metadataNode != null
+                  ? CsvUtil.getMetadata(xmlFile, metadataNode, copyrightHolderDisplayName)
+                  : CsvUtil.getMetadata(xmlFile, copyrightHolderDisplayName),
+              xmlFile,
+              collectionId,
+              availabilityPk,
+              filename);
         }
         log.info(
-          "Skipping content update for Omnipub with UUID: {} as existing updated_date: {} is more recent than new updated_date: {}",
-          cashmereUuid,
-          existingUpdatedDate,
-          newUpdatedDate        );
+            "Skipping content update for Omnipub with UUID: {} as existing updated_date: {} is more"
+                + " recent than new updated_date: {}",
+            cashmereUuid,
+            existingUpdatedDate,
+            newUpdatedDate);
       } else {
         log.warn(
-          "No metadata found for Omnipub with UUID: {}. Skipping content update for availabilityPk: {}.",
-          cashmereUuid,
-          availabilityPk
-        );
+            "No metadata found for Omnipub with UUID: {}. Skipping content update for"
+                + " availabilityPk: {}.",
+            cashmereUuid,
+            availabilityPk);
       }
     } catch (Exception e) {
       log.error(
-        "Error fetching Omnipub details for Cashmere UUID: {}, availabilityPk: {}",
-        cashmereUuid,
-        availabilityPk,
-        e
-      );
+          "Error fetching Omnipub details for Cashmere UUID: {}, availabilityPk: {}",
+          cashmereUuid,
+          availabilityPk,
+          e);
     }
   }
 
   /**
-   * Updates the metadata of an existing Omnipub in Cashmere. If the cashmereUuid is null, it logs a warning and skips the update.
+   * Updates the metadata of an existing Omnipub in Cashmere. If the cashmereUuid is null, it logs a
+   * warning and skips the update.
+   *
    * @param cashmereUuid The UUID of the Omnipub in Cashmere
    * @param metadataNode The metadata node containing updated information
    * @param xmlFile The XML file content
    * @param availabilityPk The availability primary key
    */
   private void updateOmnipubMetadata(
-    String cashmereUuid,
-    JsonNode metadataNode,
-    byte[] xmlFile,
-    String availabilityPk,
-    String copyrightHolderDisplayName
-  ) {
+      String cashmereUuid,
+      JsonNode metadataNode,
+      byte[] xmlFile,
+      String availabilityPk,
+      String copyrightHolderDisplayName) {
     if (cashmereUuid != null) {
       OmnipubMetadata metadata =
-        metadataNode != null
-          ? CsvUtil.getMetadata(xmlFile, metadataNode, copyrightHolderDisplayName)
-          : CsvUtil.getMetadata(xmlFile, copyrightHolderDisplayName);
+          metadataNode != null
+              ? CsvUtil.getMetadata(xmlFile, metadataNode, copyrightHolderDisplayName)
+              : CsvUtil.getMetadata(xmlFile, copyrightHolderDisplayName);
       cashmereService.updateOmnipub(cashmereUuid, metadata).block();
     } else {
       log.warn(
-        "No Omnipub found in Cashmere for availabilityPk: {}. Skipping metadata update.",
-        availabilityPk
-      );
+          "No Omnipub found in Cashmere for availabilityPk: {}. Skipping metadata update.",
+          availabilityPk);
     }
   }
 
   private void updateOmnipubCollection(
-    String cashmereUuid,
-    int collectionId,
-    String availabilityPk
-  ) {
-    for (Map.Entry<
-      String,
-      Integer
-    > entry : CollectionConstants.COLLECTION_NAME_TO_ID.entrySet()) {
+      String cashmereUuid, int collectionId, String availabilityPk) {
+    for (Map.Entry<String, Integer> entry : CollectionConstants.COLLECTION_NAME_TO_ID.entrySet()) {
       if (entry.getValue() == collectionId) {
         continue;
       }
-      JsonNode response = cashmereService
-        .getOmnipubs(availabilityPk, entry.getValue())
-        .block();
-      if (
-        response != null &&
-        response.has(CsvConstants.ITEMS) &&
-        response.get(CsvConstants.ITEMS).isArray() &&
-        !response.get(CsvConstants.ITEMS).isEmpty()
-      ) {
+      JsonNode response = cashmereService.getOmnipubs(availabilityPk, entry.getValue()).block();
+      if (response != null
+          && response.has(CsvConstants.ITEMS)
+          && response.get(CsvConstants.ITEMS).isArray()
+          && !response.get(CsvConstants.ITEMS).isEmpty()) {
         log.info(
-          "Updating collection from {} to {} for externalID {}",
-          entry.getKey(),
-          CollectionConstants.COLLECTION_ID_TO_NAME.get(collectionId),
-          availabilityPk
-        );
+            "Updating collection from {} to {} for externalID {}",
+            entry.getKey(),
+            CollectionConstants.COLLECTION_ID_TO_NAME.get(collectionId),
+            availabilityPk);
 
-        OmnipubsInCollection omnipubToRemove = new OmnipubsInCollection(
-          List.of(cashmereUuid)
-        );
-        cashmereService
-          .removeOmnipubFromCollection(omnipubToRemove, entry.getValue())
-          .block();
-        cashmereService
-          .addOmnipubToCollection(omnipubToRemove, collectionId)
-          .block();
+        OmnipubsInCollection omnipubToRemove = new OmnipubsInCollection(List.of(cashmereUuid));
+        cashmereService.removeOmnipubFromCollection(omnipubToRemove, entry.getValue()).block();
+        cashmereService.addOmnipubToCollection(omnipubToRemove, collectionId).block();
         return;
       }
     }
@@ -269,6 +219,7 @@ public class CsvService {
 
   /**
    * Downloads a file from S3 based on the provided S3 path.
+   *
    * @param s3Path The S3 path components (bucket and key)
    * @return The downloaded file as a byte array
    */
@@ -278,18 +229,14 @@ public class CsvService {
       String key = s3Path.get(1);
       return s3FileService.downloadFile(bucketName, key);
     } catch (Exception e) {
-      log.error(
-        "Error downloading file from S3: s3://{}/{}",
-        s3Path.get(0),
-        s3Path.get(1),
-        e
-      );
+      log.error("Error downloading file from S3: s3://{}/{}", s3Path.get(0), s3Path.get(1), e);
       return new byte[0];
     }
   }
 
   /**
    * Creates an Omnipub in Cashmere using the provided metadata and file content.
+   *
    * @param metadata The metadata for the Omnipub
    * @param fileContent The XML file content
    * @param collectionId The collection ID to associate with the Omnipub
@@ -297,12 +244,11 @@ public class CsvService {
    * @param filename The filename for the XML file
    */
   private void createOmnipub(
-    OmnipubMetadata metadata,
-    byte[] fileContent,
-    int collectionId,
-    String externalId,
-    String filename
-  ) {
+      OmnipubMetadata metadata,
+      byte[] fileContent,
+      int collectionId,
+      String externalId,
+      String filename) {
     try {
       if (metadata == null || fileContent == null || fileContent.length == 0) {
         log.error("Invalid createOmnipub request. metadata or fileContent is missing.");
@@ -313,26 +259,27 @@ public class CsvService {
       builder.part("collection_ids", collectionId);
       builder.part("external_id", externalId);
 
-      Map<String, Object> metadataMap = Map.of(
-        "title",
-        metadata.getTitle(),
-        "authors",
-        metadata.getAuthors(),
-        "publisher",
-        metadata.getPublisher(),
-        "creation_date",
-        metadata.getPublicationDate(),
-        "updated_date",
-        metadata.getLastUpdatedDate()
-      );
+      Map<String, Object> metadataMap =
+          Map.of(
+              "title",
+              metadata.getTitle(),
+              "authors",
+              metadata.getAuthors(),
+              "publisher",
+              metadata.getPublisher(),
+              "creation_date",
+              metadata.getPublicationDate(),
+              "updated_date",
+              metadata.getLastUpdatedDate());
       builder.part("metadata", metadataMap, MediaType.APPLICATION_JSON);
 
-      Resource resource = new ByteArrayResource(fileContent) {
-        @Override
-        public String getFilename() {
-          return filename;
-        }
-      };
+      Resource resource =
+          new ByteArrayResource(fileContent) {
+            @Override
+            public String getFilename() {
+              return filename;
+            }
+          };
       builder.part("file", resource, MediaType.APPLICATION_XML);
 
       cashmereService.createOmnipub(builder.build()).block();
@@ -342,28 +289,24 @@ public class CsvService {
   }
 
   /**
-   * Processes a list of video CSV rows, downloading XML files from Git, extracting metadata, and creating Omnipubs in Cashmere.
+   * Processes a list of video CSV rows, downloading XML files from Git, extracting metadata, and
+   * creating Omnipubs in Cashmere.
    *
    * @param rows The list of video CSV rows to process
    * @param collectionId The collection ID to associate with the Omnipubs
    */
-  public void processVideoCsv(
-    List<CsvVideoRow> rows,
-    int collectionId,
-    boolean isUpdate
-  ) {
+  public void processVideoCsv(List<CsvVideoRow> rows, int collectionId, boolean isUpdate) {
     for (CsvVideoRow row : rows) {
       log.info(
-        "Processing video row with title: {} and external_id: {}",
-        row.getTitle(),
-        row.getAvailabilityPk()
-      );
-      String filename = String.format(
-        "%s.xml",
-        row.getAlternateIdType1().equals("KAL")
-          ? row.getAlternateIdValue1()
-          : row.getAlternateIdValue2()
-      );
+          "Processing video row with title: {} and external_id: {}",
+          row.getTitle(),
+          row.getAvailabilityPk());
+      String filename =
+          String.format(
+              "%s.xml",
+              row.getAlternateIdType1().equals("KAL")
+                  ? row.getAlternateIdValue1()
+                  : row.getAlternateIdValue2());
       try {
         log.info("processing file: {}", filename);
 
@@ -438,12 +381,10 @@ public class CsvService {
    */
   private String getCashmereId(String externalId) {
     JsonNode response = cashmereService.getOmnipubs(externalId).block();
-    if (
-      response != null &&
-      response.has(CsvConstants.ITEMS) &&
-      response.get(CsvConstants.ITEMS).isArray() &&
-      !response.get(CsvConstants.ITEMS).isEmpty()
-    ) {
+    if (response != null
+        && response.has(CsvConstants.ITEMS)
+        && response.get(CsvConstants.ITEMS).isArray()
+        && !response.get(CsvConstants.ITEMS).isEmpty()) {
       JsonNode firstItem = response.get(CsvConstants.ITEMS).get(0);
       return firstItem.get("uuid").asString();
     }
@@ -451,8 +392,10 @@ public class CsvService {
   }
 
   /**
-   * Processes a list of CSV Deletion Manifest rows, retrieving the corresponding Cashmere UUIDs and sending delete requests
-   * to the Cashmere service for each Omnipub that matches the availabilityPk in the rows.
+   * Processes a list of CSV Deletion Manifest rows, retrieving the corresponding Cashmere UUIDs and
+   * sending delete requests to the Cashmere service for each Omnipub that matches the
+   * availabilityPk in the rows.
+   *
    * @param rows The list of CSV Deletion Manifest rows to process
    */
   public void deleteOmnipubs(List<CsvDeletionManifestRow> rows) {

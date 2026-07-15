@@ -4,19 +4,25 @@ import com.hbr.cashmere.transfer_service.constants.CsvConstants;
 import com.hbr.cashmere.transfer_service.constants.ErrorConstants;
 import com.hbr.cashmere.transfer_service.model.OmnipubMetadata;
 import com.hbr.cashmere.transfer_service.model.OmnipubsInCollection;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @Slf4j
@@ -35,13 +41,20 @@ public class CashmereService {
    * @return A Mono emitting the response body as a String
    */
   public Mono<String> createOmnipub(MultiValueMap<String, HttpEntity<?>> formData) {
-    logCreateOmnipubPayload(formData);
-    logCreateOmnipubRequestBody(formData);
+    String boundary = "----CashmereBoundary" + UUID.randomUUID().toString().replace("-", "");
+    byte[] multipartBody;
+    try {
+      multipartBody = buildMultipartBody(formData, boundary);
+    } catch (IOException e) {
+      return Mono.error(new RuntimeException("Failed to build createOmnipub multipart payload", e));
+    }
+
     return webClient
         .post()
         .uri("/omnipub")
-        .contentType(MediaType.MULTIPART_FORM_DATA)
-        .bodyValue(formData)
+        .header(HttpHeaders.CONTENT_TYPE, "multipart/form-data; boundary=" + boundary)
+        .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(multipartBody.length))
+        .bodyValue(multipartBody)
         .exchangeToMono(
             response ->
                 response
@@ -76,66 +89,77 @@ public class CashmereService {
                         }));
   }
 
-  private void logCreateOmnipubPayload(MultiValueMap<String, HttpEntity<?>> formData) {
-    Set<String> contentFields = Set.of("file", "file_url", "html_content", "md_content");
-
-    var presentContentFields =
-        contentFields.stream()
-            .filter(
-                key ->
-                    formData.containsKey(key)
-                        && formData.get(key) != null
-                        && !formData.get(key).isEmpty())
-            .toList();
-
-    log.info("createOmnipub payload keys: {}", formData.keySet());
-    log.info(
-        "createOmnipub content fields present: {} (count={})",
-        presentContentFields,
-        presentContentFields.size());
-
-    if (presentContentFields.size() != 1) {
-      log.warn(
-          "Expected exactly one of uploaded_file, file_url, html_content, md_content. Found: {}",
-          presentContentFields);
-    }
-  }
-
-  private void logCreateOmnipubRequestBody(MultiValueMap<String, HttpEntity<?>> formData) {
-    StringBuilder bodySnapshot = new StringBuilder("{\n");
+  private byte[] buildMultipartBody(MultiValueMap<String, HttpEntity<?>> formData, String boundary)
+      throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    String separator = "--" + boundary + "\r\n";
+    ObjectMapper objectMapper = new ObjectMapper();
 
     for (Map.Entry<String, List<HttpEntity<?>>> entry : formData.entrySet()) {
-      bodySnapshot.append("  \"").append(entry.getKey()).append("\": [\n");
-
+      String name = entry.getKey();
       List<HttpEntity<?>> values = entry.getValue();
-      if (values != null) {
-        for (HttpEntity<?> value : values) {
-          Object partBody = value != null ? value.getBody() : null;
-          String bodyType = partBody != null ? partBody.getClass().getName() : "null";
-          String bodyPreview = partBody != null ? String.valueOf(partBody) : "null";
-
-          if (bodyPreview.length() > 500) {
-            bodyPreview = bodyPreview.substring(0, 500) + "...<truncated>";
-          }
-
-          bodySnapshot
-              .append("    { headers: ")
-              .append(value != null ? value.getHeaders() : "null")
-              .append(", bodyType: ")
-              .append(bodyType)
-              .append(", bodyPreview: ")
-              .append(bodyPreview)
-              .append(" },\n");
-        }
+      if (values == null) {
+        continue;
       }
 
-      bodySnapshot.append("  ],\n");
+      for (HttpEntity<?> entity : values) {
+        Object body = entity != null ? entity.getBody() : null;
+        if (body == null) {
+          continue;
+        }
+
+        HttpHeaders headers = entity != null ? entity.getHeaders() : HttpHeaders.EMPTY;
+        String contentType =
+            headers.getContentType() != null
+                ? headers.getContentType().toString()
+                : inferContentType(body);
+
+        writeAscii(out, separator);
+        if (body instanceof Resource resource && resource.getFilename() != null) {
+          writeAscii(
+              out,
+              "Content-Disposition: form-data; name=\""
+                  + name
+                  + "\"; filename=\""
+                  + resource.getFilename()
+                  + "\"\r\n");
+        } else {
+          writeAscii(out, "Content-Disposition: form-data; name=\"" + name + "\"\r\n");
+        }
+        writeAscii(out, "Content-Type: " + contentType + "\r\n\r\n");
+
+        if (body instanceof Resource resource) {
+          out.write(resource.getInputStream().readAllBytes());
+        } else if (body instanceof byte[] bytes) {
+          out.write(bytes);
+        } else if (body instanceof Map && contentType.contains("application/json")) {
+          // Serialize Map to JSON string
+          String jsonString = objectMapper.writeValueAsString(body);
+          out.write(jsonString.getBytes(StandardCharsets.UTF_8));
+        } else {
+          out.write(String.valueOf(body).getBytes(StandardCharsets.UTF_8));
+        }
+        writeAscii(out, "\r\n");
+      }
     }
 
-    bodySnapshot.append("}");
-    log.info("createOmnipub full multipart payload snapshot:\n{}", bodySnapshot);
+    writeAscii(out, "--" + boundary + "--\r\n");
+    return out.toByteArray();
   }
 
+  private String inferContentType(Object body) {
+    if (body instanceof Resource) {
+      return MediaType.APPLICATION_OCTET_STREAM_VALUE;
+    }
+    if (body instanceof Map) {
+      return MediaType.APPLICATION_JSON_VALUE;
+    }
+    return MediaType.TEXT_PLAIN_VALUE;
+  }
+
+  private void writeAscii(ByteArrayOutputStream out, String value) {
+    out.writeBytes(value.getBytes(StandardCharsets.UTF_8));
+  }
   /**
    * Deletes an Omnipub by sending a DELETE request to the Cashmere API with the provided Cashmere
    * UUID.
