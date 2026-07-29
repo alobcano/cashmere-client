@@ -23,6 +23,7 @@ import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @Slf4j
@@ -32,16 +33,19 @@ public class CsvService {
   private final CashmereService cashmereService;
   private final ContentService contentService;
   private final GitService gitService;
+  private final ObjectMapper objectMapper;
 
   public CsvService(
       S3FileService s3FileService,
       CashmereService cashmereService,
       ContentService contentService,
-      GitService gitService) {
+      GitService gitService,
+      ObjectMapper objectMapper) {
     this.s3FileService = s3FileService;
     this.cashmereService = cashmereService;
     this.contentService = contentService;
     this.gitService = gitService;
+    this.objectMapper = objectMapper;
   }
 
   /**
@@ -88,15 +92,15 @@ public class CsvService {
         log.warn(
             "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
             row.getAvailabilityPk());
-        this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
-        this.updateOmnipubContent(
-            xmlFile,
-            cashmereUuid,
-            row.getAvailabilityPk(),
-            metadataNode,
-            s3Path.get(2),
-            collectionId,
-            row.getCopyrightHolderDisplayName());
+//        this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
+//        this.updateOmnipubContent(
+//            xmlFile,
+//            cashmereUuid,
+//            row.getAvailabilityPk(),
+//            metadataNode,
+//            s3Path.get(2),
+//            collectionId,
+//            row.getCopyrightHolderDisplayName());
         continue;
       }
 
@@ -282,9 +286,45 @@ public class CsvService {
           };
       builder.part("file", resource, MediaType.APPLICATION_XML);
 
-      cashmereService.createOmnipub(builder.build()).block();
+      String response = cashmereService.createOmnipub(builder.build()).block();
+
+
+//      String uuid = null;
+//      if (response != null && !response.isEmpty()) {
+//        try {
+//          JsonNode responseNode = objectMapper.readTree(response);
+//          if (responseNode.has("uuid")) {
+//            uuid = responseNode.get("uuid").asString();
+//            log.info("Successfully created Omnipub with UUID: {}", uuid);
+//          }
+//        } catch (Exception e) {
+//          log.error("Failed to parse createOmnipub response: {}", response, e);
+//        }
+//      }
+//
+//
+//      try {
+//        log.info("Waiting 10 seconds before checking for duplicates...");
+//        Thread.sleep(4000);
+//      } catch (InterruptedException e) {
+//        Thread.currentThread().interrupt();
+//        log.warn("Interrupted while waiting to check for duplicates", e);
+//      }
+//
+//      checkIfOmnipubIsDuplicated(uuid);
+
     } catch (Exception e) {
       log.error("Error creating Omnipub for title: {}", metadata.getTitle(), e);
+    }
+  }
+
+  private void checkIfOmnipubIsDuplicated(String omnipubUuid) {
+    JsonNode omnipubStatus = cashmereService.getOmnipubStatus(omnipubUuid).block();
+    if(omnipubStatus != null && omnipubStatus.has("duplicate_uuid")) {
+      log.info("Omnipub with UUID: {} is a duplicate. Deleting the duplicate Omnipub.", omnipubUuid);
+      String duplicateUuid = omnipubStatus.get("duplicate_uuid").asString();
+      log.info("Deleting Omnipub with UUID: {}", duplicateUuid);
+      cashmereService.deleteOmnipub(duplicateUuid).block();
     }
   }
 
