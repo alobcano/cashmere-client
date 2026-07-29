@@ -154,7 +154,7 @@ public class CsvUtil {
     return 0;
   }
   
-  return CollectionConstants.COLLECTION_NAME_TO_ID.entrySet().stream()
+  return CollectionConstants.getCollectionNameToId().entrySet().stream()
     .filter(entry -> filename.contains(entry.getKey()))
     .map(Map.Entry::getValue)
     .findFirst()

@@ -1,10 +1,17 @@
 package com.hbr.cashmere.transfer_service.constants;
 
+import com.hbr.cashmere.transfer_service.configuration.CollectionIdProperties;
 import java.util.Map;
+import org.springframework.stereotype.Component;
 
+@Component
 public class CollectionConstants {
 
-  private CollectionConstants() {}
+  private static CollectionIdProperties properties;
+
+  public CollectionConstants(CollectionIdProperties properties) {
+    CollectionConstants.properties = properties;
+  }
 
   public static final String CL_ARTICLES_BASE = "CL-Articles-Base";
   public static final String CL_ARTICLES_DEI = "CL-Articles-Inclusive";
@@ -13,28 +20,35 @@ public class CollectionConstants {
   public static final String CL_PODCASTS_BASE = "CL-Podcasts-Base";
   public static final String CL_PODCASTS_DEI = "CL-Podcasts-Inclusive";
 
-  public static final int CL_ARTICLES_BASE_ID = 451;
-  public static final int CL_ARTICLES_DEI_ID = 452;
-  public static final int CL_VIDEOS_BASE_ID = 453;
-  public static final int CL_VIDEOS_DEI_ID = 454;
-  public static final int CL_PODCASTS_BASE_ID = 455;
-  public static final int CL_PODCASTS_DEI_ID = 456;
+  public static int getCLArticlesBaseId() {
+    return properties.getArticlesBase();
+  }
 
-  public static final Map<String, Integer> COLLECTION_NAME_TO_ID = Map.of(
-    CL_ARTICLES_BASE, CL_ARTICLES_BASE_ID,
-    CL_ARTICLES_DEI, CL_ARTICLES_DEI_ID,
-    CL_VIDEOS_BASE, CL_VIDEOS_BASE_ID,
-    CL_VIDEOS_DEI, CL_VIDEOS_DEI_ID,
-    CL_PODCASTS_BASE, CL_PODCASTS_BASE_ID,
-    CL_PODCASTS_DEI, CL_PODCASTS_DEI_ID
-  );
+  public static int getCLArticlesDeiId() {
+    return properties.getArticlesDei();
+  }
 
-  public static final Map<Integer, String> COLLECTION_ID_TO_NAME = Map.of(
-    CL_ARTICLES_BASE_ID, CL_ARTICLES_BASE,
-    CL_ARTICLES_DEI_ID, CL_ARTICLES_DEI,
-    CL_VIDEOS_BASE_ID, CL_VIDEOS_BASE,
-    CL_VIDEOS_DEI_ID, CL_VIDEOS_DEI,
-    CL_PODCASTS_BASE_ID, CL_PODCASTS_BASE,
-    CL_PODCASTS_DEI_ID, CL_PODCASTS_DEI
-  );
+  public static int getCLVideosBaseId() {
+    return properties.getVideosBase();
+  }
+
+  public static int getCLVideosDeiId() {
+    return properties.getVideosDei();
+  }
+
+  public static int getCLPodcastsBaseId() {
+    return properties.getPodcastsBase();
+  }
+
+  public static int getCLPodcastsDeiId() {
+    return properties.getPodcastsDei();
+  }
+
+  public static Map<String, Integer> getCollectionNameToId() {
+    return properties.getCollectionNameToId();
+  }
+
+  public static Map<Integer, String> getCollectionIdToName() {
+    return properties.getCollectionIdToName();
+  }
 }

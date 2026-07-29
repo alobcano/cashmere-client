@@ -197,7 +197,7 @@ public class CsvService {
 
   private void updateOmnipubCollection(
       String cashmereUuid, int collectionId, String availabilityPk) {
-    for (Map.Entry<String, Integer> entry : CollectionConstants.COLLECTION_NAME_TO_ID.entrySet()) {
+    for (Map.Entry<String, Integer> entry : CollectionConstants.getCollectionNameToId().entrySet()) {
       if (entry.getValue() == collectionId) {
         continue;
       }
@@ -209,7 +209,7 @@ public class CsvService {
         log.info(
             "Updating collection from {} to {} for externalID {}",
             entry.getKey(),
-            CollectionConstants.COLLECTION_ID_TO_NAME.get(collectionId),
+            CollectionConstants.getCollectionIdToName().get(collectionId),
             availabilityPk);
 
         OmnipubsInCollection omnipubToRemove = new OmnipubsInCollection(List.of(cashmereUuid));

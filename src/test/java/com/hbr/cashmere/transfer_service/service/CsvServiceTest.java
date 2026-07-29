@@ -36,6 +36,9 @@ class CsvServiceTest {
   @Mock
   private GitService gitService;
 
+  @Mock
+  private tools.jackson.databind.ObjectMapper objectMapper;
+
   private CsvService csvService;
 
   @BeforeEach
@@ -44,7 +47,8 @@ class CsvServiceTest {
       s3FileService,
       cashmereService,
       contentService,
-      gitService
+      gitService,
+      objectMapper
     );
   }
 
