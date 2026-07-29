@@ -60,8 +60,8 @@ public class CsvService {
     for (CsvSnowflakeRow row : rows) {
       byte[] xmlFile;
       JsonNode metadataNode = null;
+//      List<String> s3Path = CsvUtil.getS3Parts(row.getS3Path());
       List<String> s3Path = new ArrayList<>();
-      // List<String> s3Path = CsvUtil.getS3Parts(row.getS3Path());
       s3Path.add("hbrg-prod");
       s3Path.add(row.getS3Path() + ".xml");
       s3Path.add(row.getS3Path().substring(row.getS3Path().lastIndexOf("/") + 1) + ".xml");
@@ -92,15 +92,15 @@ public class CsvService {
         log.warn(
             "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
             row.getAvailabilityPk());
-//        this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
-//        this.updateOmnipubContent(
-//            xmlFile,
-//            cashmereUuid,
-//            row.getAvailabilityPk(),
-//            metadataNode,
-//            s3Path.get(2),
-//            collectionId,
-//            row.getCopyrightHolderDisplayName());
+        this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
+        this.updateOmnipubContent(
+            xmlFile,
+            cashmereUuid,
+            row.getAvailabilityPk(),
+            metadataNode,
+            s3Path.get(2),
+            collectionId,
+            row.getCopyrightHolderDisplayName());
         continue;
       }
 
