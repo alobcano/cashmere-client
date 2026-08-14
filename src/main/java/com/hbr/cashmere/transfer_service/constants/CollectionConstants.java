@@ -13,13 +13,6 @@ public class CollectionConstants {
     CollectionConstants.properties = properties;
   }
 
-  public static final String CL_ARTICLES_BASE = "CL-Articles-Base";
-  public static final String CL_ARTICLES_DEI = "CL-Articles-Inclusive";
-  public static final String CL_VIDEOS_BASE = "CL-Videos-Base";
-  public static final String CL_VIDEOS_DEI = "CL-Videos-Inclusive";
-  public static final String CL_PODCASTS_BASE = "CL-Podcasts-Base";
-  public static final String CL_PODCASTS_DEI = "CL-Podcasts-Inclusive";
-
   public static int getCLArticlesBaseId() {
     return properties.getArticlesBase();
   }

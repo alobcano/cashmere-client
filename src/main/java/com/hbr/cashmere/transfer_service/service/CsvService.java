@@ -1,5 +1,6 @@
 package com.hbr.cashmere.transfer_service.service;
 
+import com.hbr.cashmere.transfer_service.configuration.CollectionIdProperties;
 import com.hbr.cashmere.transfer_service.constants.CollectionConstants;
 import com.hbr.cashmere.transfer_service.constants.CsvConstants;
 import com.hbr.cashmere.transfer_service.constants.DeleteConstants;
@@ -34,18 +35,21 @@ public class CsvService {
   private final ContentService contentService;
   private final GitService gitService;
   private final ObjectMapper objectMapper;
+  private final CollectionIdProperties collectionIdProperties;
 
   public CsvService(
       S3FileService s3FileService,
       CashmereService cashmereService,
       ContentService contentService,
       GitService gitService,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      CollectionIdProperties collectionIdProperties) {
     this.s3FileService = s3FileService;
     this.cashmereService = cashmereService;
     this.contentService = contentService;
     this.gitService = gitService;
     this.objectMapper = objectMapper;
+    this.collectionIdProperties = collectionIdProperties;
   }
 
   /**
@@ -74,7 +78,14 @@ public class CsvService {
       }
 
       if (XmlUtil.extractAuthors(xmlFile).length == 0) {
-        metadataNode = contentService.fetchMetadata(row.getAvailabilityPk()).block();
+        try {
+          metadataNode = contentService.fetchMetadata(row.getAvailabilityPk()).block();
+        } catch (Exception e) {
+          log.warn(
+              "Failed to fetch metadata for availabilityPk: {}. Will proceed with XML-only metadata. Error: {}",
+              row.getAvailabilityPk(),
+              e.getMessage());
+        }
       }
 
       String cashmereUuid = this.getCashmereId(row.getAvailabilityPk());
@@ -195,28 +206,38 @@ public class CsvService {
     }
   }
 
+  /**
+   *
+   * */
   private void updateOmnipubCollection(
       String cashmereUuid, int collectionId, String availabilityPk) {
-    for (Map.Entry<String, Integer> entry : CollectionConstants.getCollectionNameToId().entrySet()) {
-      if (entry.getValue() == collectionId) {
-        continue;
-      }
-      JsonNode response = cashmereService.getOmnipubs(availabilityPk, entry.getValue()).block();
-      if (response != null
-          && response.has(CsvConstants.ITEMS)
-          && response.get(CsvConstants.ITEMS).isArray()
-          && !response.get(CsvConstants.ITEMS).isEmpty()) {
-        log.info(
-            "Updating collection from {} to {} for externalID {}",
-            entry.getKey(),
-            CollectionConstants.getCollectionIdToName().get(collectionId),
-            availabilityPk);
+    List<Integer> collectionIds = this.getCollectionIds(cashmereUuid);
 
+    if (collectionIds != null && collectionIds.contains(collectionId)) {
+      log.info(
+          "Omnipub with UUID: {} is already in collection: {}. No update needed.",
+          cashmereUuid,
+          CollectionConstants.getCollectionIdToName().get(collectionId));
+      return;
+    }
+
+    // Filter to only keep collection IDs that are in CollectionIdProperties
+    if (collectionIds != null) {
+      List<Integer> validCollectionIds = collectionIdProperties.getCollectionIds();
+      collectionIds = collectionIds.stream()
+          .filter(validCollectionIds::contains)
+          .toList();
+      collectionIds.forEach(id -> {
+        log.info(
+            "Removing Omnipub with UUID: {} from collection: {} (ID: {}).",
+            cashmereUuid,
+            CollectionConstants.getCollectionIdToName().get(id),
+            id);
         OmnipubsInCollection omnipubToRemove = new OmnipubsInCollection(List.of(cashmereUuid));
-        cashmereService.removeOmnipubFromCollection(omnipubToRemove, entry.getValue()).block();
+        cashmereService.removeOmnipubFromCollection(omnipubToRemove, id).block();
         cashmereService.addOmnipubToCollection(omnipubToRemove, collectionId).block();
-        return;
-      }
+      });
+      return;
     }
     log.warn("Skipping collection update for externalId: {}.", availabilityPk);
   }
@@ -354,7 +375,15 @@ public class CsvService {
             gitService.downloadXmlWithMetadata(filename).block();
         byte[] xmlFile = XmlUtil.replaceAssetNameTag(fileWithMetadata.getContent(), row.getTitle());
 
-        JsonNode metadataNode = contentService.fetchMetadata(row.getAvailabilityPk()).block();
+        JsonNode metadataNode = null;
+        try {
+          metadataNode = contentService.fetchMetadata(row.getAvailabilityPk()).block();
+        } catch (Exception e) {
+          log.warn(
+              "Failed to fetch metadata for video availabilityPk: {}. Will proceed with available metadata. Error: {}",
+              row.getAvailabilityPk(),
+              e.getMessage());
+        }
 
         OmnipubMetadata metadata =
             CsvUtil.getMetadata(
@@ -427,6 +456,16 @@ public class CsvService {
         && !response.get(CsvConstants.ITEMS).isEmpty()) {
       JsonNode firstItem = response.get(CsvConstants.ITEMS).get(0);
       return firstItem.get("uuid").asString();
+    }
+    return null;
+  }
+
+  private List<Integer> getCollectionIds(String omnipubUuid) {
+    JsonNode omnipub = cashmereService.getOmnipub(omnipubUuid).block();
+    if (omnipub != null && omnipub.has("collection_ids") && omnipub.get("collection_ids").isArray()) {
+      List<Integer> collectionIds = new ArrayList<>();
+      omnipub.get("collection_ids").forEach(node -> collectionIds.add(node.asInt()));
+      return collectionIds;
     }
     return null;
   }

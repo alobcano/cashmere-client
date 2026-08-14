@@ -1,5 +1,6 @@
 package com.hbr.cashmere.transfer_service.configuration;
 
+import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,6 +40,10 @@ public class CollectionIdProperties {
       podcastsBase, "CL-Podcasts-Base",
       podcastsDei, "CL-Podcasts-Inclusive"
     );
+  }
+
+  public List<Integer> getCollectionIds() {
+    return List.of(articlesBase, articlesDei, videosBase, videosDei, podcastsBase, podcastsDei);
   }
 }
 

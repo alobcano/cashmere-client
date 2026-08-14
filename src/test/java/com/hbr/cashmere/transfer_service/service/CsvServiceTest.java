@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.hbr.cashmere.transfer_service.configuration.CollectionIdProperties;
 import com.hbr.cashmere.transfer_service.model.CsvDeletionManifestRow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,9 @@ class CsvServiceTest {
   @Mock
   private tools.jackson.databind.ObjectMapper objectMapper;
 
+  @Mock
+  private CollectionIdProperties collectionIdProperties;
+
   private CsvService csvService;
 
   @BeforeEach
@@ -48,7 +52,8 @@ class CsvServiceTest {
       cashmereService,
       contentService,
       gitService,
-      objectMapper
+      objectMapper,
+      collectionIdProperties
     );
   }
 
