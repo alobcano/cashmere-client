@@ -52,7 +52,6 @@ class CsvServiceTest {
       cashmereService,
       contentService,
       gitService,
-      objectMapper,
       collectionIdProperties
     );
   }
