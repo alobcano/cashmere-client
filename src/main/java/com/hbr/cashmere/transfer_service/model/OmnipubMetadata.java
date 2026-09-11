@@ -19,4 +19,7 @@ public class OmnipubMetadata {
 
   @JsonProperty("updated_date")
   private String lastUpdatedDate;
+
+  @JsonProperty("source_url")
+  private String sourceUrl;
 }

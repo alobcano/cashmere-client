@@ -262,4 +262,12 @@ public class CsvUtil {
     String fileName = parts[1].substring(parts[1].lastIndexOf('/') + 1);
     return List.of(parts[0], parts[1], fileName);
   }
+
+  public static String toAvailabilityId(String coreProductId) {
+    if (coreProductId == null || coreProductId.isBlank()) {
+      return "";
+    }
+    return String.format("%s-VIF-ENG", coreProductId);
+  }
+
 }

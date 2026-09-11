@@ -212,7 +212,8 @@ class CashmereServiceTest {
             new String[] {"Author 1", "Author 2"},
             "Test Publisher",
             "2024-01-01",
-            "2024-01-15");
+            "2024-01-15",
+                "https://example.com/source-url");
 
     // When & Then
     StepVerifier.create(cashmereService.updateOmnipub(cashmereUuid, metadata)).verifyComplete();
@@ -233,7 +234,7 @@ class CashmereServiceTest {
             .setBody(errorBody)
             .addHeader("Content-Type", "application/json"));
 
-    OmnipubMetadata metadata = new OmnipubMetadata("Test Title", new String[] {}, null, null, null);
+    OmnipubMetadata metadata = new OmnipubMetadata("Test Title", new String[] {}, null, null ,null, null);
 
     // When & Then
     StepVerifier.create(cashmereService.updateOmnipub("test-uuid", metadata))
@@ -254,7 +255,7 @@ class CashmereServiceTest {
             .setBody(errorBody)
             .addHeader("Content-Type", "application/json"));
 
-    OmnipubMetadata metadata = new OmnipubMetadata("Test Title", new String[] {}, null, null, null);
+    OmnipubMetadata metadata = new OmnipubMetadata("Test Title", new String[] {}, null, null, null, null);
 
     // When & Then
     StepVerifier.create(cashmereService.updateOmnipub("test-uuid", metadata))

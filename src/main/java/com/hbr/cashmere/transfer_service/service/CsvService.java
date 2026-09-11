@@ -60,13 +60,12 @@ public class CsvService {
     for (CsvSnowflakeRow row : rows) {
       byte[] xmlFile;
       JsonNode metadataNode = null;
-//      List<String> s3Path = CsvUtil.getS3Parts(row.getS3Path());
       List<String> s3Path = new ArrayList<>();
       s3Path.add("hbrg-prod");
       s3Path.add(row.getS3Path() + ".xml");
       s3Path.add(row.getS3Path().substring(row.getS3Path().lastIndexOf("/") + 1) + ".xml");
 
-      log.info("processing file: {}", s3Path.get(2));
+      log.debug("processing file: {}", s3Path.get(2));
       xmlFile = this.downloadFileFromS3(s3Path);
       if (xmlFile.length == 0) {
         log.error("Failed to download file from S3: s3://{}/{}", s3Path.get(0), s3Path.get(1));
@@ -92,6 +91,7 @@ public class CsvService {
             metadataNode,
             xmlFile,
             row.getAvailabilityPk(),
+            row.getCoreProductId(),
             row.getCopyrightHolderDisplayName());
         continue;
       }
@@ -107,6 +107,7 @@ public class CsvService {
             metadataNode,
             s3Path.get(2),
             collectionId,
+            row.getS3Path(),
             row.getCopyrightHolderDisplayName());
         continue;
       }
@@ -118,6 +119,7 @@ public class CsvService {
           xmlFile,
           collectionId,
           row.getAvailabilityPk(),
+          row.getS3Path(),
           s3Path.get(2));
     }
   }
@@ -129,6 +131,7 @@ public class CsvService {
       JsonNode metadataNode,
       String filename,
       int collectionId,
+      String s3Path,
       String copyrightHolderDisplayName) {
     try {
       JsonNode omnipub = cashmereService.getOmnipub(cashmereUuid).block();
@@ -136,7 +139,7 @@ public class CsvService {
         String existingUpdatedDate = omnipub.get("data").get("updated_date").asString();
         String newUpdatedDate = XmlUtil.extractDate(xmlFile, XmlConstants.UPDATED_TAG);
         if (newUpdatedDate != null && newUpdatedDate.compareTo(existingUpdatedDate) > 0) {
-          log.info(
+          log.debug(
               "Updating content for Omnipub with UUID: {}. Existing updated_date: {}, New"
                   + " updated_date: {}",
               cashmereUuid,
@@ -150,9 +153,10 @@ public class CsvService {
               xmlFile,
               collectionId,
               availabilityPk,
+              s3Path,
               filename);
         }
-        log.info(
+        log.debug(
             "Skipping content update for Omnipub with UUID: {} as existing updated_date: {} is more"
                 + " recent than new updated_date: {}",
             cashmereUuid,
@@ -188,12 +192,15 @@ public class CsvService {
       JsonNode metadataNode,
       byte[] xmlFile,
       String availabilityPk,
+      String coreProductId,
       String copyrightHolderDisplayName) {
     if (cashmereUuid != null) {
-      OmnipubMetadata metadata =
+     OmnipubMetadata metadata =
           metadataNode != null
               ? CsvUtil.getMetadata(xmlFile, metadataNode, copyrightHolderDisplayName)
               : CsvUtil.getMetadata(xmlFile, copyrightHolderDisplayName);
+
+      metadata.setSourceUrl(CsvUtil.toAvailabilityId(coreProductId));
       cashmereService.updateOmnipub(cashmereUuid, metadata).block();
     } else {
       log.warn(
@@ -269,12 +276,14 @@ public class CsvService {
       byte[] fileContent,
       int collectionId,
       String externalId,
+      String s3Path,
       String filename) {
     try {
       if (metadata == null || fileContent == null || fileContent.length == 0) {
         log.error("Invalid createOmnipub request. metadata or fileContent is missing.");
         return;
       }
+      metadata.setSourceUrl(CsvUtil.toAvailabilityId(s3Path));
 
       MultipartBodyBuilder builder = new MultipartBodyBuilder();
       builder.part("collection_ids", collectionId);
@@ -318,7 +327,7 @@ public class CsvService {
    */
   public void processVideoCsv(List<CsvVideoRow> rows, int collectionId, boolean isUpdate) {
     for (CsvVideoRow row : rows) {
-      log.info(
+      log.debug(
           "Processing video row with title: {} and external_id: {}",
           row.getTitle(),
           row.getAvailabilityPk());
@@ -329,7 +338,7 @@ public class CsvService {
                   ? row.getAlternateIdValue1()
                   : row.getAlternateIdValue2());
       try {
-        log.info("processing file: {}", filename);
+        log.debug("processing file: {}", filename);
 
         GitHubFileWithMetadata fileWithMetadata =
             gitService.downloadXmlWithMetadata(filename).block();
@@ -356,6 +365,7 @@ public class CsvService {
 
         if (isUpdate) {
           if (cashmereUuid != null) {
+            metadata.setSourceUrl(CsvUtil.toAvailabilityId(row.getCoreProductId()));
             cashmereService.updateOmnipub(cashmereUuid, metadata).block();
           } else {
             log.warn(
@@ -366,16 +376,17 @@ public class CsvService {
         }
 
         if (cashmereUuid != null) {
-          log.warn(
+         // If the Omnipub already exists, update its collection and video content
+         log.warn(
               "Omnipub already exists in Cashmere for availabilityPk: {}. Skipping creation.",
               row.getAvailabilityPk());
-          // this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
+          this.updateOmnipubCollection(cashmereUuid, collectionId, row.getAvailabilityPk());
           this.updateOmnipubVideoContent(
               xmlFile, cashmereUuid, row.getAvailabilityPk(), metadata, filename, collectionId);
           continue;
         }
 
-        this.createOmnipub(metadata, xmlFile, collectionId, row.getAvailabilityPk(), filename);
+        this.createOmnipub(metadata, xmlFile, collectionId, row.getAvailabilityPk(), null, filename);
       } catch (Exception e) {
         log.error("Error processing file: {}", filename, e);
       }
@@ -391,7 +402,7 @@ public class CsvService {
       int collectionId) {
     try {
       cashmereService.deleteOmnipub(cashmereUuid).block();
-      this.createOmnipub(metadata, xmlFile, collectionId, availabilityPk, filename);
+      this.createOmnipub(metadata, xmlFile, collectionId, availabilityPk, null, filename);
     } catch (Exception e) {
       log.error(
           "Error updating video content for Omnipub with UUID: {}, availabilityPk: {}",

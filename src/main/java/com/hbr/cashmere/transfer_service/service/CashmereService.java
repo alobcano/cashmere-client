@@ -7,6 +7,7 @@ import com.hbr.cashmere.transfer_service.model.OmnipubsInCollection;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -21,12 +22,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
 @Slf4j
 public class CashmereService {
+
+  private static final int UPDATE_OMNIPUB_MAX_RETRY_ATTEMPTS = 3;
+  private static final Duration UPDATE_OMNIPUB_RETRY_MIN_BACKOFF = Duration.ofMillis(500);
 
   private final WebClient webClient;
 
@@ -330,7 +335,22 @@ public class CashmereService {
                           return Mono.error(
                               new RuntimeException(ErrorConstants.SERVER_ERROR + body));
                         }))
-        .bodyToMono(String.class);
+        .bodyToMono(String.class)
+        .retryWhen(
+            Retry.backoff(UPDATE_OMNIPUB_MAX_RETRY_ATTEMPTS, UPDATE_OMNIPUB_RETRY_MIN_BACKOFF)
+                .filter(
+                    throwable ->
+                        throwable instanceof RuntimeException
+                            && throwable.getMessage() != null
+                            && throwable.getMessage().startsWith(ErrorConstants.SERVER_ERROR))
+                .doBeforeRetry(
+                    signal ->
+                        log.warn(
+                            "Retrying updateOmnipub for Cashmere UUID: {} after server error,"
+                                + " attempt: {}",
+                            cashmereUuid,
+                            signal.totalRetries() + 1))
+                .onRetryExhaustedThrow((spec, signal) -> signal.failure()));
   }
 
   public Mono<String> removeOmnipubFromCollection(
