@@ -29,6 +29,11 @@ import tools.jackson.databind.JsonNode;
 @Slf4j
 public class CsvService {
 
+  // Snowflake CSV rows for podcasts include a redundant "podcast/" segment in s3Path
+  // that isn't present in the actual S3 object key, so it must be stripped before download.
+  private static final String PODCAST_S3_PATH_SEGMENT = "podcast-content/podcast/";
+  private static final String PODCAST_S3_PATH_REPLACEMENT = "podcast-content/";
+
   private final S3FileService s3FileService;
   private final CashmereService cashmereService;
   private final ContentService contentService;
@@ -60,10 +65,11 @@ public class CsvService {
     for (CsvSnowflakeRow row : rows) {
       byte[] xmlFile;
       JsonNode metadataNode = null;
+      String s3ObjectKey = this.resolveS3ObjectKey(row.getS3Path());
       List<String> s3Path = new ArrayList<>();
       s3Path.add("hbrg-prod");
-      s3Path.add(row.getS3Path() + ".xml");
-      s3Path.add(row.getS3Path().substring(row.getS3Path().lastIndexOf("/") + 1) + ".xml");
+      s3Path.add(s3ObjectKey + ".xml");
+      s3Path.add(s3ObjectKey.substring(s3ObjectKey.lastIndexOf("/") + 1) + ".xml");
 
       log.debug("processing file: {}", s3Path.get(2));
       xmlFile = this.downloadFileFromS3(s3Path);
@@ -243,6 +249,22 @@ public class CsvService {
       return;
     }
     log.warn("Skipping collection update for externalId: {}.", availabilityPk);
+  }
+
+  /**
+   * Resolves the actual S3 object key for a given CSV s3Path. Podcast rows carry a redundant
+   * "podcast/" segment (e.g. "website/podcast-content/podcast/2006/05/...") that doesn't exist
+   * in the S3 bucket, where the real key omits it (e.g. "website/podcast-content/2006/05/...").
+   * This strips that segment when present, leaving article/other paths untouched.
+   *
+   * @param s3Path The raw s3Path value from the CSV row
+   * @return The S3 object key to use when downloading the file
+   */
+  private String resolveS3ObjectKey(String s3Path) {
+    if (s3Path != null && s3Path.contains(PODCAST_S3_PATH_SEGMENT)) {
+      return s3Path.replace(PODCAST_S3_PATH_SEGMENT, PODCAST_S3_PATH_REPLACEMENT);
+    }
+    return s3Path;
   }
 
   /**
